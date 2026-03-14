@@ -1,7 +1,7 @@
 ---
 tracker:
   kind: linear
-  project_slug: "REPLACE_WITH_LINEAR_PROJECT_SLUG"
+  project_slug: "manga-media-remotion-e37e12494859"
   active_states:
     - Todo
     - In Progress
