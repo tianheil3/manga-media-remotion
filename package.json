@@ -1,0 +1,7 @@
+{
+  "name": "manga-media-remotion",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ]
+}
