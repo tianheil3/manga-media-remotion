@@ -78,7 +78,8 @@ Execution rules:
 6. Treat any ticket-authored `Validation`, `Testing`, or `Test Plan` sections as required acceptance input.
 7. Use small, logical commits and keep the branch current.
 8. Before moving a ticket to `Human Review`, make sure validation is green, PR feedback is cleared, and the workpad reflects reality.
-9. When a ticket enters `Merging`, follow the repository `land` workflow if that skill is available; otherwise stop and report the missing capability in the workpad.
+9. When a ticket enters `Merging`, run the repository land flow with `scripts/land.sh` from the issue workspace instead of doing normal implementation work.
+10. Do not expand scope during `Merging`. Record blockers in the workpad and move the ticket to `Rework` if additional code changes are required.
 
 Repository-specific guardrails:
 
@@ -86,5 +87,17 @@ Repository-specific guardrails:
 - Do not push workflow logic into Remotion that belongs in the Python orchestration layer.
 - Prefer file-backed project state over adding a database unless the ticket explicitly requires it.
 - Keep the first implementation minimal and aligned with the approved design docs unless the ticket explicitly changes scope.
+
+Merging workflow:
+
+- When a ticket enters `Merging`, run `scripts/land.sh` on the issue branch from the issue workspace.
+- `scripts/land.sh` must start by running `scripts/verify-strict.sh`.
+- Fetch `origin/main`.
+- Reset local `main` to `origin/main`.
+- Squash-merge the issue branch into `main`.
+- Push `main` to `origin/main`.
+- Only mark the Linear issue `Done` after `git push origin main` succeeds.
+- Do not expand scope during `Merging`.
+- If strict validation, fetch, squash merge, or push fails, record the blocker in the workpad and move the ticket to `Rework` when more code changes are required.
 
 If no valid Linear integration is available, stop immediately and report the missing setup as a blocker in the workpad.

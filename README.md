@@ -17,3 +17,15 @@ Setup guides live under `docs/setup/`:
 - `docs/setup/local-development.md`
 - `docs/setup/mangaocr.md`
 - `docs/setup/moyin-env.md`
+- `docs/setup/symphony.md`
+- `docs/setup/strict-validation.md`
+- `docs/setup/symphony-land.md`
+
+## Symphony Auto-Land
+
+Symphony landing is repository-defined:
+
+- `WORKFLOW.md` tells Symphony that `Merging` is a landing-only state.
+- `scripts/verify-strict.sh` runs the repository strict validation suite.
+- `scripts/land.sh` squash-merges an issue branch into `main` and pushes `main` to `origin/main`.
+- `docs/verification/symphony-auto-land.md` describes the safe end-to-end verification checklist.
