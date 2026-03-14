@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -14,7 +16,7 @@ class OcrBubble(BaseModel):
     bbox: BoundingBox
     order: int
     confidence: float
-    language: str
+    language: Literal["ja", "zh", "en"]
 
 
 class ReviewedBubble(BaseModel):
@@ -25,7 +27,7 @@ class ReviewedBubble(BaseModel):
     text_original: str = Field(alias="textOriginal")
     text_edited: str = Field(alias="textEdited")
     order: int
-    kind: str
+    kind: Literal["dialogue", "narration", "sfx", "ignore"]
     speaker: str | None = None
 
 
@@ -35,5 +37,5 @@ class Frame(BaseModel):
     frame_id: str = Field(alias="frameId")
     image: str
     ocr_file: str = Field(alias="ocrFile")
-    bubbles: list[OcrBubble]
-    reviewed_bubbles: list[ReviewedBubble] = Field(alias="reviewedBubbles")
+    bubbles: list[OcrBubble] = Field(default_factory=list)
+    reviewed_bubbles: list[ReviewedBubble] = Field(default_factory=list, alias="reviewedBubbles")

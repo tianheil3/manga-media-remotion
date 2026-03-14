@@ -1,0 +1,14 @@
+{
+  "name": "@manga/remotion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@manga/schema": "file:../../packages/schema",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "scripts": {
+    "test": "node --import ../../tools/register-tsx.mjs --test tests/*.test.ts tests/*.test.tsx"
+  }
+}

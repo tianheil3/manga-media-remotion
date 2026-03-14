@@ -1,0 +1,48 @@
+from pathlib import Path
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
+
+from apps.api.app.services.render_jobs import create_job, get_job
+
+router = APIRouter(prefix="/projects", tags=["render"])
+
+
+class RenderRequest(BaseModel):
+    kind: Literal["preview", "final"]
+
+
+@router.post("/{project_id}/render-jobs")
+def create_render_job(
+    project_id: str,
+    payload: RenderRequest,
+    request: Request,
+) -> dict[str, object]:
+    project_dir = _project_dir(project_id, request)
+    job = create_job(project_dir, kind=payload.kind)
+    return _job_payload(project_id, job.model_dump(mode="json", by_alias=True))
+
+
+@router.get("/{project_id}/render-jobs/{job_id}")
+def get_render_job(project_id: str, job_id: str, request: Request) -> dict[str, object]:
+    project_dir = _project_dir(project_id, request)
+    try:
+        job = get_job(project_dir, job_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return _job_payload(project_id, job.model_dump(mode="json", by_alias=True))
+
+
+def _job_payload(project_id: str, job: dict[str, object]) -> dict[str, object]:
+    return {
+        **job,
+        "statusPath": f"/projects/{project_id}/render-jobs/{job['id']}",
+    }
+
+
+def _project_dir(project_id: str, request: Request) -> Path:
+    project_dir = Path(request.app.state.workspace_root) / project_id
+    if not (project_dir / "project.json").exists():
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project_dir

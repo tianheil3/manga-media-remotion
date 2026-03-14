@@ -9,3 +9,11 @@ This repository is a local-first manga video workflow MVP.
 - `packages/schema` contains shared TypeScript schemas for on-disk contracts.
 - `packages/shared` is reserved for cross-app utilities.
 - `workspace/<project-id>` stores resumable project state on disk instead of in a database.
+
+## Local Development
+
+Setup guides live under `docs/setup/`:
+
+- `docs/setup/local-development.md`
+- `docs/setup/mangaocr.md`
+- `docs/setup/moyin-env.md`
