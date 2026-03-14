@@ -32,6 +32,8 @@ codex:
   thread_sandbox: workspace-write
   turn_sandbox_policy:
     type: workspaceWrite
+server:
+  host: "0.0.0.0"
 ---
 
 You are working on a Linear ticket `{{ issue.identifier }}` for the `manga-media-remotion` repository.
