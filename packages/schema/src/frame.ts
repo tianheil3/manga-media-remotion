@@ -23,7 +23,7 @@ export const reviewedBubbleSchema = z.object({
   textEdited: z.string(),
   order: z.number().int().nonnegative(),
   kind: z.enum(["dialogue", "narration", "sfx", "ignore"]),
-  speaker: z.string().min(1).optional(),
+  speaker: z.string().min(1).nullable().optional(),
 });
 
 export const frameSchema = z.object({

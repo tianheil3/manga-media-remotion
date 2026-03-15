@@ -42,9 +42,9 @@ export const audioMetadataSchema = z.object({
   frameId: z.string().min(1),
   mode: voiceSchema.shape.mode,
   role: voiceSchema.shape.role,
-  speaker: voiceSchema.shape.speaker,
-  audioFile: voiceSchema.shape.audioFile,
-  durationMs: voiceSchema.shape.durationMs,
+  speaker: z.string().min(1).nullable().optional(),
+  audioFile: z.string().min(1).nullable().optional(),
+  durationMs: z.number().int().positive().nullable().optional(),
   replaceAudioPath: z.string().min(1),
   skipRecordingPath: z.string().min(1),
 });

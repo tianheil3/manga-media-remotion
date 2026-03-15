@@ -12,6 +12,12 @@ export type SceneReviewDraft = {
   }>;
 };
 
+export type SceneReviewValidationErrors = Partial<
+  Record<"subtitleText" | "durationMs" | "stylePreset", string>
+>;
+
+const STYLE_PRESETS = new Set(["default", "fast", "dramatic", "calm"]);
+
 export function createSceneReviewDraft(scene: SceneReview): SceneReviewDraft {
   return {
     id: scene.id,
@@ -46,9 +52,43 @@ export function updateSceneReviewDraft(
 }
 
 export function toSceneUpdatePayload(draft: SceneReviewDraft): SceneUpdate {
+  const normalized = normalizeSceneReviewDraft(draft);
+
   return {
-    subtitleText: draft.subtitleText,
-    durationMs: draft.durationMs,
-    stylePreset: draft.stylePreset,
+    subtitleText: normalized.subtitleText,
+    durationMs: normalized.durationMs,
+    stylePreset: normalized.stylePreset,
+  };
+}
+
+export function validateSceneReviewDraft(draft: SceneReviewDraft): SceneReviewValidationErrors {
+  const normalized = normalizeSceneReviewDraft(draft);
+  const errors: SceneReviewValidationErrors = {};
+
+  if (!Number.isInteger(normalized.durationMs) || normalized.durationMs <= 0) {
+    errors.durationMs = "Duration must be a positive integer.";
+  }
+
+  if (!STYLE_PRESETS.has(normalized.stylePreset)) {
+    errors.stylePreset = "Style preset is invalid.";
+  }
+
+  return errors;
+}
+
+export function hasSceneReviewValidationErrors(errors: SceneReviewValidationErrors): boolean {
+  return Object.keys(errors).length > 0;
+}
+
+function normalizeSceneReviewDraft(draft: SceneReviewDraft): SceneReviewDraft {
+  const subtitleText =
+    typeof draft.subtitleText === "string" && draft.subtitleText.trim().length === 0
+      ? null
+      : draft.subtitleText;
+
+  return {
+    ...draft,
+    subtitleText,
+    durationMs: Math.trunc(draft.durationMs),
   };
 }

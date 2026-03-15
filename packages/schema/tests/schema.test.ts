@@ -101,6 +101,7 @@ test("validates API response shapes used by the web review layer", () => {
     type: "narration",
     image: "images/001.png",
     subtitleText: "Subtitle",
+    voiceId: "voice-script-bubble-001",
     durationMs: 1800,
     stylePreset: "dramatic",
     audioMetadata: {
@@ -127,8 +128,79 @@ test("validates API response shapes used by the web review layer", () => {
   });
 
   assert.equal(detail.counts.frames, 3);
+  assert.equal((sceneReview as { voiceId?: string | null }).voiceId, "voice-script-bubble-001");
   assert.equal(sceneReview.audioMetadata?.role, "narrator");
   assert.equal(renderJob.kind, "preview");
+});
+
+test("accepts nullable optional scene response fields from the API", () => {
+  const parsed = sceneReviewSchema.parse({
+    id: "scene-001",
+    type: "dialogue",
+    image: "images/001.png",
+    subtitleText: null,
+    audio: null,
+    durationMs: 1800,
+    speaker: null,
+    stylePreset: "dramatic",
+    cameraMotion: null,
+    transition: null,
+    audioMetadata: null,
+  });
+
+  assert.equal(parsed.subtitleText, null);
+  assert.equal(parsed.audio, null);
+  assert.equal(parsed.speaker, null);
+  assert.equal(parsed.cameraMotion, null);
+  assert.equal(parsed.transition, null);
+});
+
+test("accepts cleared reviewed bubble speakers from the API", () => {
+  const parsed = frameSchema.parse({
+    frameId: "frame-001",
+    image: "images/001.png",
+    ocrFile: "ocr/001.json",
+    bubbles: [],
+    reviewedBubbles: [
+      {
+        id: "review-bubble-a",
+        sourceBubbleId: "bubble-a",
+        textOriginal: "raw",
+        textEdited: "edited",
+        order: 0,
+        kind: "dialogue",
+        speaker: null,
+      },
+    ],
+  });
+
+  assert.equal(parsed.reviewedBubbles[0]?.speaker, null);
+});
+
+test("accepts scene review audio metadata with null optional fields from the API", () => {
+  const parsed = sceneReviewSchema.parse({
+    id: "scene-001",
+    type: "dialogue",
+    image: "images/001.png",
+    subtitleText: "Subtitle",
+    durationMs: 1800,
+    stylePreset: "dramatic",
+    audioMetadata: {
+      id: "voice-001",
+      frameId: "frame-001",
+      mode: "skip",
+      role: "character",
+      speaker: null,
+      audioFile: null,
+      durationMs: null,
+      replaceAudioPath: "/projects/demo-001/voices/voice-001/audio",
+      skipRecordingPath: "/projects/demo-001/voices/voice-001/skip",
+    },
+  });
+
+  assert.equal(parsed.audioMetadata?.speaker, null);
+  assert.equal(parsed.audioMetadata?.audioFile, null);
+  assert.equal(parsed.audioMetadata?.durationMs, null);
 });
 
 test("rejects missing required fields", () => {

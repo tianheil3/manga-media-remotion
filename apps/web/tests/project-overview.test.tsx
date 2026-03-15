@@ -4,13 +4,15 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { App, loadApp } from "../src/App.tsx";
+import { App, AppView, createAppReviewActions, loadApp } from "../src/App.tsx";
+import { FrameReviewPage } from "../src/pages/FrameReviewPage.tsx";
 import {
   loadPreviewPage,
   PreviewPage,
   triggerPreviewRender,
 } from "../src/pages/PreviewPage.tsx";
 import { ProjectOverviewPage } from "../src/pages/ProjectOverview.tsx";
+import { SceneReviewPage } from "../src/pages/SceneReviewPage.tsx";
 
 const project = {
   id: "demo-001",
@@ -155,10 +157,78 @@ test("app shell renders overview and preview sections together", () => {
   assert.match(markup, /Preview/);
 });
 
+test("app shell forwards review action props to review pages", () => {
+  const frameReviewActions = {
+    onBubbleTextEditedChange() {},
+    onBubbleOrderChange() {},
+    onBubbleKindChange() {},
+    onBubbleSpeakerChange() {},
+    onSave() {},
+  };
+  const sceneReviewActions = {
+    onSubtitleTextChange() {},
+    onDurationMsChange() {},
+    onStylePresetChange() {},
+    onSaveScene() {},
+  };
+
+  const tree = AppView({
+    project,
+    scenes,
+    activeJob: null,
+    frameReview: {
+      frame: { frameId: "frame-001" },
+      draft: {
+        frameId: "frame-001",
+        bubbles: [
+          {
+            sourceBubbleId: "bubble-a",
+            textEdited: "edited line",
+            order: 0,
+            kind: "dialogue",
+            speaker: "Hero",
+          },
+        ],
+      },
+    },
+    sceneReview: {
+      scenes: [
+        {
+          id: "scene-001",
+          type: "dialogue",
+          image: "images/001.png",
+          subtitleText: "edited subtitle",
+          durationMs: 1200,
+          stylePreset: "dramatic",
+          audioMetadata: null,
+        },
+      ],
+      drafts: [
+        {
+          id: "scene-001",
+          subtitleText: "edited subtitle",
+          durationMs: 1200,
+          stylePreset: "dramatic",
+          audioActions: [],
+        },
+      ],
+    },
+    frameReviewActions,
+    sceneReviewActions,
+  });
+
+  const frameReviewElement = tree.props.children[2];
+  const sceneReviewElement = tree.props.children[3];
+
+  assert.equal(frameReviewElement.type, FrameReviewPage);
+  assert.equal(frameReviewElement.props.actions, frameReviewActions);
+  assert.equal(sceneReviewElement.type, SceneReviewPage);
+  assert.equal(sceneReviewElement.props.actions, sceneReviewActions);
+});
+
 test("app loader fetches frame review and scene review data for the shell", async () => {
   const calls = [];
-  const loaded = await loadApp({
-    api: {
+  const api = {
       getProject: async (projectId) => {
         calls.push(["project", projectId]);
         return project;
@@ -214,7 +284,9 @@ test("app loader fetches frame review and scene review data for the shell", asyn
           },
         ];
       },
-    },
+    };
+  const loaded = await loadApp({
+    api,
     projectId: "demo-001",
   });
 
@@ -224,7 +296,271 @@ test("app loader fetches frame review and scene review data for the shell", asyn
     ["frames", "demo-001"],
     ["scene-review", "demo-001"],
   ]);
+  assert.equal(loaded.api, api);
+  assert.equal(loaded.projectId, "demo-001");
   assert.equal(loaded.frameReview?.frame.frameId, "frame-001");
+  assert.equal(loaded.frameReview?.isLoading, false);
+  assert.equal(loaded.frameReview?.errorMessage, null);
+  assert.equal(loaded.sceneReview?.scenes[0]?.id, "scene-001");
+});
+
+test("app loader surfaces frame review load errors without dropping the rest of the shell", async () => {
+  const loaded = await loadApp({
+    api: {
+      getProject: async () => project,
+      getScenes: async () => scenes,
+      getRenderJob: async () => null,
+      getFrames: async () => {
+        throw new Error("frame load failed");
+      },
+      getSceneReview: async () => [
+        {
+          id: "scene-001",
+          type: "dialogue",
+          image: "images/001.png",
+          subtitleText: "edited subtitle",
+          audio: "audio/001.wav",
+          durationMs: 1200,
+          stylePreset: "dramatic",
+          audioMetadata: null,
+        },
+      ],
+    },
+    projectId: "demo-001",
+  });
+
+  const markup = renderToStaticMarkup(React.createElement(App, loaded));
+
+  assert.match(markup, /frame load failed/);
+  assert.match(markup, /Scene review/);
+});
+
+test("app loader surfaces scene review load errors without dropping frame review", async () => {
+  const loaded = await loadApp({
+    api: {
+      getProject: async () => project,
+      getScenes: async () => scenes,
+      getRenderJob: async () => null,
+      getFrames: async () => [
+        {
+          frameId: "frame-001",
+          image: "images/001.png",
+          ocrFile: "ocr/001.json",
+          bubbles: [
+            {
+              id: "bubble-a",
+              text: "raw line",
+              bbox: { x: 0, y: 0, w: 10, h: 10 },
+              order: 0,
+              confidence: 0.9,
+              language: "ja",
+            },
+          ],
+          reviewedBubbles: [],
+        },
+      ],
+      getSceneReview: async () => {
+        throw new Error("scene load failed");
+      },
+    },
+    projectId: "demo-001",
+  });
+
+  const markup = renderToStaticMarkup(React.createElement(App, loaded));
+
+  assert.match(markup, /scene load failed/);
+  assert.match(markup, /Frame review/);
+});
+
+test("app review actions write through setter callbacks for mounted state", async () => {
+  const calls = [];
+  let frameReview = {
+    frame: {
+      frameId: "frame-001",
+      image: "images/001.png",
+      ocrFile: "ocr/001.json",
+      bubbles: [],
+      reviewedBubbles: [],
+    },
+    draft: {
+      frameId: "frame-001",
+      bubbles: [
+        {
+          sourceBubbleId: "bubble-a",
+          textEdited: "draft line",
+          order: 0,
+          kind: "dialogue",
+          speaker: "Hero",
+        },
+      ],
+    },
+    isLoading: false,
+    isSaving: false,
+    errorMessage: null,
+    saveMessage: null,
+    validationErrors: {},
+  };
+  let sceneReview = {
+    scenes: [
+      {
+        id: "scene-001",
+        type: "dialogue",
+        image: "images/001.png",
+        subtitleText: "edited subtitle",
+        audio: "audio/001.wav",
+        durationMs: 1200,
+        stylePreset: "dramatic",
+        audioMetadata: null,
+      },
+    ],
+    drafts: [
+      {
+        id: "scene-001",
+        subtitleText: "edited subtitle",
+        durationMs: 1200,
+        stylePreset: "dramatic",
+        audioActions: [],
+      },
+    ],
+    isLoading: false,
+    savingSceneIds: [],
+    errorMessages: {},
+    saveMessages: {},
+    validationErrors: {},
+  };
+
+  const { frameReviewActions, sceneReviewActions } = createAppReviewActions({
+    api: {
+      updateFrameReview: async (projectId, frameId, payload) => {
+        calls.push(["frame-save", projectId, frameId, payload]);
+        return {
+          frameId,
+          image: "images/001.png",
+          ocrFile: "ocr/001.json",
+          bubbles: [],
+          reviewedBubbles: [
+            {
+              id: "review-a",
+              sourceBubbleId: "bubble-a",
+              textOriginal: "raw line",
+              textEdited: "saved line",
+              order: 1,
+              kind: "narration",
+              speaker: "Narrator",
+            },
+          ],
+        };
+      },
+      updateScene: async (projectId, sceneId, payload) => {
+        calls.push(["scene-save", projectId, sceneId, payload]);
+        return {
+          id: sceneId,
+          type: "dialogue",
+          image: "images/001.png",
+          subtitleText: "saved subtitle",
+          durationMs: 1800,
+          stylePreset: "calm",
+          audioMetadata: null,
+        };
+      },
+    },
+    projectId: "demo-001",
+    getFrameReviewState: () => frameReview,
+    setFrameReviewState: (nextState) => {
+      frameReview = nextState;
+    },
+    getSceneReviewState: () => sceneReview,
+    setSceneReviewState: (nextState) => {
+      sceneReview = nextState;
+    },
+  });
+
+  frameReviewActions.onBubbleTextEditedChange("bubble-a", "edited in app");
+  sceneReviewActions.onStylePresetChange("scene-001", "fast");
+
+  assert.equal(frameReview.draft.bubbles[0]?.textEdited, "edited in app");
+  assert.equal(sceneReview.drafts[0]?.stylePreset, "fast");
+
+  await frameReviewActions.onSave();
+  await sceneReviewActions.onSaveScene("scene-001");
+
+  assert.equal(frameReview.saveMessage, "Frame review saved.");
+  assert.equal(frameReview.draft.bubbles[0]?.textEdited, "saved line");
+  assert.equal(sceneReview.saveMessages["scene-001"], "Scene review saved.");
+  assert.equal(sceneReview.drafts[0]?.subtitleText, "saved subtitle");
+  assert.deepEqual(calls, [
+    [
+      "frame-save",
+      "demo-001",
+      "frame-001",
+      {
+        reviewedBubbles: [
+          {
+            sourceBubbleId: "bubble-a",
+            textEdited: "edited in app",
+            order: 0,
+            kind: "dialogue",
+            speaker: "Hero",
+          },
+        ],
+        skip: false,
+      },
+    ],
+    [
+      "scene-save",
+      "demo-001",
+      "scene-001",
+      {
+        subtitleText: "edited subtitle",
+        durationMs: 1200,
+        stylePreset: "fast",
+      },
+    ],
+  ]);
+});
+
+test("app loader ignores stale frame ids instead of throwing", async () => {
+  const loaded = await loadApp({
+    api: {
+      getProject: async () => project,
+      getScenes: async () => scenes,
+      getRenderJob: async () => null,
+      getFrames: async () => [
+        {
+          frameId: "frame-001",
+          image: "images/001.png",
+          ocrFile: "ocr/001.json",
+          bubbles: [
+            {
+              id: "bubble-a",
+              text: "raw line",
+              bbox: { x: 0, y: 0, w: 10, h: 10 },
+              order: 0,
+              confidence: 0.9,
+              language: "ja",
+            },
+          ],
+          reviewedBubbles: [],
+        },
+      ],
+      getSceneReview: async () => [
+        {
+          id: "scene-001",
+          type: "dialogue",
+          image: "images/001.png",
+          subtitleText: "edited subtitle",
+          audio: "audio/001.wav",
+          durationMs: 1200,
+          stylePreset: "dramatic",
+          audioMetadata: null,
+        },
+      ],
+    },
+    projectId: "demo-001",
+    frameId: "missing-frame",
+  });
+
+  assert.equal(loaded.frameReview, null);
   assert.equal(loaded.sceneReview?.scenes[0]?.id, "scene-001");
 });
 

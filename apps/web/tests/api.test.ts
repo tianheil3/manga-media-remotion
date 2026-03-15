@@ -109,6 +109,51 @@ test("updates frame review and triggers preview renders through the web api clie
 });
 
 
+test("updates frame review through the web api client when the saved speaker is cleared", async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  const client = createApiClient({
+    fetchImpl: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return new Response(
+        JSON.stringify({
+          frameId: "frame-001",
+          image: "images/001.png",
+          ocrFile: "ocr/001.json",
+          bubbles: [],
+          reviewedBubbles: [
+            {
+              id: "review-bubble-a",
+              sourceBubbleId: "bubble-a",
+              textOriginal: "raw",
+              textEdited: "edited",
+              order: 0,
+              kind: "dialogue",
+              speaker: null,
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    },
+  });
+
+  const frame = await client.updateFrameReview("demo-001", "frame-001", {
+    reviewedBubbles: [
+      {
+        sourceBubbleId: "bubble-a",
+        textEdited: "edited",
+        order: 0,
+        kind: "dialogue",
+      },
+    ],
+    skip: false,
+  });
+
+  assert.equal(calls[0]?.url, "/projects/demo-001/frames/frame-001/review");
+  assert.equal(frame.reviewedBubbles[0]?.speaker, null);
+});
+
+
 test("loads preview scenes through the web api client", async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const client = createApiClient({
@@ -143,7 +188,43 @@ test("loads preview scenes through the web api client", async () => {
 });
 
 
-test("loads skipped scene review payloads with null audio fields through the web api client", async () => {
+test("loads frames with cleared reviewed speakers through the web api client", async () => {
+  const client = createApiClient({
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify([
+          {
+            frameId: "frame-001",
+            image: "images/001.png",
+            ocrFile: "ocr/001.json",
+            bubbles: [],
+            reviewedBubbles: [
+              {
+                id: "review-bubble-a",
+                sourceBubbleId: "bubble-a",
+                textOriginal: "raw",
+                textEdited: "edited",
+                order: 0,
+                kind: "dialogue",
+                speaker: null,
+              },
+            ],
+          },
+        ]),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      ),
+  });
+
+  const frames = await client.getFrames("demo-001");
+
+  assert.equal(frames[0]?.reviewedBubbles[0]?.speaker, null);
+});
+
+
+test("loads scene payloads with null optional fields through the web api client", async () => {
   const client = createApiClient({
     fetchImpl: async () =>
       new Response(
@@ -155,21 +236,100 @@ test("loads skipped scene review payloads with null audio fields through the web
             subtitleText: "subtitle",
             voiceId: "voice-001",
             audio: null,
-            durationMs: 1500,
-            speaker: "Hero",
+            durationMs: 1000,
+            speaker: null,
             stylePreset: "default",
             cameraMotion: null,
-            transition: "cut",
+            transition: null,
+          },
+        ]),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      ),
+  });
+
+  const scenes = await client.getScenes("demo-001");
+
+  assert.equal(scenes[0]?.audio, null);
+  assert.equal((scenes[0] as { voiceId?: string | null } | undefined)?.voiceId, "voice-001");
+  assert.equal(scenes[0]?.speaker, null);
+  assert.equal(scenes[0]?.cameraMotion, null);
+  assert.equal(scenes[0]?.transition, null);
+});
+
+
+test("updates scenes through the web api client when the saved subtitle is cleared", async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  const client = createApiClient({
+    fetchImpl: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return new Response(
+        JSON.stringify({
+          id: "scene-001",
+          type: "dialogue",
+          image: "images/001.png",
+          subtitleText: null,
+          audio: null,
+          durationMs: 1000,
+          speaker: null,
+          stylePreset: "default",
+          audioMetadata: null,
+          cameraMotion: null,
+          transition: null,
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      );
+    },
+  });
+
+  const scene = await client.updateScene("demo-001", "scene-001", {
+    subtitleText: null,
+    durationMs: 1000,
+    stylePreset: "default",
+  });
+
+  assert.equal(calls[0]?.url, "/projects/demo-001/scenes/scene-001");
+  assert.equal(calls[0]?.init?.method, "PUT");
+  assert.match(String(calls[0]?.init?.body), /"subtitleText":null/);
+  assert.equal(scene.subtitleText, null);
+  assert.equal(scene.audio, null);
+  assert.equal(scene.speaker, null);
+  assert.equal(scene.cameraMotion, null);
+  assert.equal(scene.transition, null);
+});
+
+
+test("loads scene review payloads when audio metadata contains null optional fields", async () => {
+  const client = createApiClient({
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify([
+          {
+            id: "scene-001",
+            type: "dialogue",
+            image: "images/001.png",
+            subtitleText: "subtitle",
+            audio: null,
+            durationMs: 1000,
+            speaker: null,
+            stylePreset: "default",
+            cameraMotion: null,
+            transition: null,
             audioMetadata: {
               id: "voice-001",
               frameId: "frame-001",
               mode: "skip",
               role: "character",
-              speaker: "Hero",
+              speaker: null,
               audioFile: null,
               durationMs: null,
-              replaceAudioPath: "/replace",
-              skipRecordingPath: "/skip",
+              replaceAudioPath: "/projects/demo-001/voices/voice-001/audio",
+              skipRecordingPath: "/projects/demo-001/voices/voice-001/skip",
             },
           },
         ]),
@@ -182,7 +342,53 @@ test("loads skipped scene review payloads with null audio fields through the web
 
   const scenes = await client.getSceneReview("demo-001");
 
-  assert.equal(scenes[0]?.audio, null);
-  assert.equal(scenes[0]?.audioMetadata?.mode, "skip");
+  assert.equal(scenes[0]?.audioMetadata?.speaker, null);
+  assert.equal(scenes[0]?.audioMetadata?.audioFile, null);
   assert.equal(scenes[0]?.audioMetadata?.durationMs, null);
+});
+
+
+test("updates scenes through the web api client when audio metadata contains null optional fields", async () => {
+  const client = createApiClient({
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify({
+          id: "scene-001",
+          type: "dialogue",
+          image: "images/001.png",
+          subtitleText: "subtitle",
+          audio: null,
+          durationMs: 1000,
+          speaker: null,
+          stylePreset: "default",
+          cameraMotion: null,
+          transition: null,
+          audioMetadata: {
+            id: "voice-001",
+            frameId: "frame-001",
+            mode: "skip",
+            role: "character",
+            speaker: null,
+            audioFile: null,
+            durationMs: null,
+            replaceAudioPath: "/projects/demo-001/voices/voice-001/audio",
+            skipRecordingPath: "/projects/demo-001/voices/voice-001/skip",
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      ),
+  });
+
+  const scene = await client.updateScene("demo-001", "scene-001", {
+    subtitleText: "subtitle",
+    durationMs: 1000,
+    stylePreset: "default",
+  });
+
+  assert.equal(scene.audioMetadata?.speaker, null);
+  assert.equal(scene.audioMetadata?.audioFile, null);
+  assert.equal(scene.audioMetadata?.durationMs, null);
 });

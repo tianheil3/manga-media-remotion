@@ -69,3 +69,26 @@ test("updates editable scene fields and serializes an update payload", () => {
     stylePreset: "calm",
   });
 });
+
+test("preserves raw subtitle draft input while normalizing the scene update payload", () => {
+  const initial = createSceneReviewDraft({
+    id: "scene-001",
+    type: "narration",
+    image: "images/001.png",
+    subtitleText: "Original subtitle",
+    durationMs: 1400,
+    stylePreset: "default",
+    audioMetadata: null,
+  });
+
+  const updated = updateSceneReviewDraft(initial, {
+    subtitleText: " ",
+  });
+
+  assert.equal(updated.subtitleText, " ");
+  assert.deepEqual(toSceneUpdatePayload(updated), {
+    subtitleText: null,
+    durationMs: 1400,
+    stylePreset: "default",
+  });
+});

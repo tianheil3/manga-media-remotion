@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from apps.api.app.models.frame import Frame
 from apps.api.app.models.project import Project
 from apps.api.app.models.scene import Scene
 from apps.api.app.models.voice import VoiceSegment
@@ -48,6 +49,17 @@ def create_project_with_scenes(workspace_root: Path, project_id: str) -> Path:
             updatedAt="2026-03-14T00:00:00Z",
         )
     )
+    store.save_frames(
+        [
+            Frame(
+                frameId="frame-001",
+                image="images/001.png",
+                ocrFile="ocr/001.json",
+                bubbles=[],
+                reviewedBubbles=[],
+            )
+        ]
+    )
     store.save_voices(
         [
             VoiceSegment(
@@ -73,6 +85,63 @@ def create_project_with_scenes(workspace_root: Path, project_id: str) -> Path:
                 subtitleText="Original subtitle",
                 voiceId="voice-script-bubble-001",
                 audio="audio/narration/script-bubble-001.wav",
+                durationMs=1400,
+                speaker="Narrator",
+                stylePreset="default",
+                transition="cut",
+            )
+        ]
+    )
+    return project_dir
+
+
+def create_project_with_skipped_voice_scene(workspace_root: Path, project_id: str) -> Path:
+    project_dir = workspace_root / project_id
+    store = FileStore(project_dir)
+    store.save_project(
+        Project(
+            id=project_id,
+            title=f"Project {project_id}",
+            sourceLanguage="ja",
+            imageDir="images",
+            createdAt="2026-03-14T00:00:00Z",
+            updatedAt="2026-03-14T00:00:00Z",
+        )
+    )
+    store.save_frames(
+        [
+            Frame(
+                frameId="frame-001",
+                image="images/001.png",
+                ocrFile="ocr/001.json",
+                bubbles=[],
+                reviewedBubbles=[],
+            )
+        ]
+    )
+    store.save_voices(
+        [
+            VoiceSegment(
+                id="voice-script-bubble-001",
+                frameId="frame-001",
+                text="Narration voice",
+                mode="skip",
+                role="narrator",
+                speaker="Narrator",
+                voicePreset="narrator-default",
+                audioFile=None,
+                durationMs=1200,
+            )
+        ]
+    )
+    store.save_scenes(
+        [
+            Scene(
+                id="scene-001",
+                type="narration",
+                image="images/001.png",
+                subtitleText="Original subtitle",
+                audio=None,
                 durationMs=1400,
                 speaker="Narrator",
                 stylePreset="default",
@@ -133,6 +202,34 @@ def make_request(workspace_root: Path) -> SimpleNamespace:
     return SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(workspace_root=workspace_root)))
 
 
+def expected_audio_metadata(project_id: str) -> dict[str, object]:
+    return {
+        "id": "voice-script-bubble-001",
+        "frameId": "frame-001",
+        "mode": "tts",
+        "role": "narrator",
+        "speaker": "Narrator",
+        "audioFile": "audio/narration/script-bubble-001.wav",
+        "durationMs": 1200,
+        "replaceAudioPath": f"/projects/{project_id}/voices/voice-script-bubble-001/audio",
+        "skipRecordingPath": f"/projects/{project_id}/voices/voice-script-bubble-001/skip",
+    }
+
+
+def expected_skipped_audio_metadata(project_id: str) -> dict[str, object]:
+    return {
+        "id": "voice-script-bubble-001",
+        "frameId": "frame-001",
+        "mode": "skip",
+        "role": "narrator",
+        "speaker": "Narrator",
+        "audioFile": None,
+        "durationMs": 1200,
+        "replaceAudioPath": f"/projects/{project_id}/voices/voice-script-bubble-001/audio",
+        "skipRecordingPath": f"/projects/{project_id}/voices/voice-script-bubble-001/skip",
+    }
+
+
 def test_get_scene_review_lists_scenes_with_audio_metadata_and_actions(tmp_path: Path) -> None:
     workspace_root = tmp_path / "workspace"
     create_project_with_scenes(workspace_root, "demo-001")
@@ -151,17 +248,7 @@ def test_get_scene_review_lists_scenes_with_audio_metadata_and_actions(tmp_path:
             "stylePreset": "default",
             "cameraMotion": None,
             "transition": "cut",
-            "audioMetadata": {
-                "id": "voice-script-bubble-001",
-                "frameId": "frame-001",
-                "mode": "tts",
-                "role": "narrator",
-                "speaker": "Narrator",
-                "audioFile": "audio/narration/script-bubble-001.wav",
-                "durationMs": 1200,
-                "replaceAudioPath": "/projects/demo-001/voices/voice-script-bubble-001/audio",
-                "skipRecordingPath": "/projects/demo-001/voices/voice-script-bubble-001/skip",
-            },
+            "audioMetadata": expected_audio_metadata("demo-001"),
         }
     ]
 
@@ -194,10 +281,79 @@ def test_update_scene_persists_subtitle_duration_and_style(tmp_path: Path) -> No
         "stylePreset": "dramatic",
         "cameraMotion": None,
         "transition": "cut",
+        "audioMetadata": expected_audio_metadata("demo-001"),
     }
 
     stored_scenes = json.loads((project_dir / "script" / "scenes.json").read_text(encoding="utf-8"))
-    assert stored_scenes == [updated_scene]
+    assert stored_scenes == [
+        {
+            key: value
+            for key, value in updated_scene.items()
+            if key != "audioMetadata"
+        }
+    ]
+
+
+def test_update_scene_response_keeps_audio_metadata_for_review_refresh(tmp_path: Path) -> None:
+    workspace_root = tmp_path / "workspace"
+    create_project_with_scenes(workspace_root, "demo-001")
+    request = make_request(workspace_root)
+
+    updated_scene = update_scene(
+        "demo-001",
+        "scene-001",
+        SceneUpdate(
+            subtitleText="Edited subtitle",
+            durationMs=1800,
+            stylePreset="dramatic",
+        ),
+        request,
+    )
+
+    assert updated_scene["audioMetadata"] == expected_audio_metadata("demo-001")
+
+
+def test_get_scene_review_keeps_audio_actions_for_skipped_voice_segments(tmp_path: Path) -> None:
+    workspace_root = tmp_path / "workspace"
+    create_project_with_skipped_voice_scene(workspace_root, "demo-001")
+    request = make_request(workspace_root)
+
+    assert get_scene_review("demo-001", request) == [
+        {
+            "id": "scene-001",
+            "type": "narration",
+            "image": "images/001.png",
+            "subtitleText": "Original subtitle",
+            "voiceId": "voice-script-bubble-001",
+            "audio": None,
+            "durationMs": 1400,
+            "speaker": "Narrator",
+            "stylePreset": "default",
+            "cameraMotion": None,
+            "transition": "cut",
+            "audioMetadata": expected_skipped_audio_metadata("demo-001"),
+        }
+    ]
+
+
+def test_update_scene_response_keeps_audio_actions_for_skipped_voice_segments(tmp_path: Path) -> None:
+    workspace_root = tmp_path / "workspace"
+    create_project_with_skipped_voice_scene(workspace_root, "demo-001")
+    request = make_request(workspace_root)
+
+    updated_scene = update_scene(
+        "demo-001",
+        "scene-001",
+        SceneUpdate(
+            subtitleText="Edited subtitle",
+            durationMs=1800,
+            stylePreset="dramatic",
+        ),
+        request,
+    )
+
+    assert updated_scene["voiceId"] == "voice-script-bubble-001"
+    assert updated_scene["audioMetadata"] == expected_skipped_audio_metadata("demo-001")
 
 
 def test_replace_voice_audio_updates_the_voice_segment_and_synces_scene_review(tmp_path: Path) -> None:
