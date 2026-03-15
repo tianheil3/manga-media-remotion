@@ -61,14 +61,14 @@ export function createApiClient(options = {}) {
           body: JSON.stringify(renderJobRequestSchema.parse(payload)),
         },
         renderJobSchema
-      ),
+      ).then((job) => resolveRenderJobUrls(job, baseUrl)),
     getRenderJob: (projectId, jobId) =>
       requestJson(
         fetchImpl,
         `${baseUrl}/projects/${projectId}/render-jobs/${jobId}`,
         {},
         renderJobSchema
-      ),
+      ).then((job) => resolveRenderJobUrls(job, baseUrl)),
   };
 }
 
@@ -92,6 +92,30 @@ function normalizeBaseUrl(baseUrl) {
   }
 
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+}
+
+function resolveRenderJobUrls(job, baseUrl) {
+  return {
+    ...job,
+    outputFile: resolveApiUrl(job.outputFile, baseUrl),
+    statusPath: resolveApiUrl(job.statusPath, baseUrl),
+  };
+}
+
+function resolveApiUrl(path, baseUrl) {
+  if (!path || !baseUrl || hasProtocol(path)) {
+    return path;
+  }
+
+  if (path.startsWith("/")) {
+    return `${baseUrl}${path}`;
+  }
+
+  return `${baseUrl}/${path}`;
+}
+
+function hasProtocol(path) {
+  return /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(path);
 }
 
 function jsonHeaders() {
