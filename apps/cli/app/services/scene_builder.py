@@ -2,7 +2,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from apps.api.app.models.scene import Scene
+from apps.api.app.models.voice import VoiceSegment
 from apps.api.app.services.file_store import FileStore
+from apps.cli.app.services.scene_sync import resolve_voice_duration_ms
 from apps.cli.app.services.script_builder import load_script_entries
 
 
@@ -34,6 +36,7 @@ def build_scenes(
                     type="silent",
                     image=frame.image,
                     subtitleText=None,
+                    voiceId=None,
                     audio=None,
                     durationMs=silent_duration_ms,
                     speaker=None,
@@ -48,14 +51,16 @@ def build_scenes(
             script_entry = script_entries.get(voice.id.removeprefix("voice-"))
             subtitle_text = script_entry.subtitle_text if script_entry else voice.text
             scene_type = "narration" if voice.role == "narrator" else "dialogue"
+            duration_ms = _scene_duration_ms(project_dir, voice, padding_ms, silent_duration_ms)
             scenes.append(
                 Scene(
                     id=f"scene-{len(scenes) + 1:03d}",
                     type=scene_type,
                     image=frame.image,
                     subtitleText=subtitle_text,
+                    voiceId=voice.id,
                     audio=voice.audio_file,
-                    durationMs=(voice.duration_ms or 0) + padding_ms,
+                    durationMs=duration_ms,
                     speaker=voice.speaker,
                     stylePreset="default",
                     cameraMotion=None,
@@ -86,3 +91,15 @@ def _load_optional_script_entries(project_dir: Path):
         return load_script_entries(project_dir)
     except FileNotFoundError:
         return []
+
+
+def _scene_duration_ms(
+    project_dir: Path,
+    voice: VoiceSegment,
+    padding_ms: int,
+    silent_duration_ms: int,
+) -> int:
+    duration_ms = resolve_voice_duration_ms(project_dir, voice)
+    if voice.audio_file is None or duration_ms is None:
+        return silent_duration_ms
+    return duration_ms + padding_ms

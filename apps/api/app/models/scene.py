@@ -8,6 +8,7 @@ class Scene(BaseModel):
     type: str
     image: str
     subtitle_text: str | None = Field(default=None, alias="subtitleText")
+    voice_id: str | None = Field(default=None, alias="voiceId")
     audio: str | None = None
     duration_ms: int = Field(alias="durationMs")
     speaker: str | None = None

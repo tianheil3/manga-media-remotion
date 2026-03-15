@@ -4,6 +4,8 @@ from pathlib import Path
 
 from apps.api.app.models.voice import VoiceSegment
 from apps.api.app.services.file_store import FileStore
+from apps.cli.app.services.audio_duration import measure_wav_duration_ms
+from apps.cli.app.services.scene_sync import sync_scenes_with_updated_voices
 from apps.cli.app.services.transcription import Transcriber, transcribe_audio
 
 
@@ -22,6 +24,7 @@ def record_voice_segment(
 
     store = FileStore(project_dir)
     voices = store.load_voices()
+    previous_voices = list(voices)
     updated_voices: list[VoiceSegment] = []
     matched_voice: VoiceSegment | None = None
 
@@ -38,6 +41,7 @@ def record_voice_segment(
                         "mode": "skip",
                         "audio_file": None,
                         "transcript": None,
+                        "duration_ms": None,
                     }
                 )
             )
@@ -47,6 +51,7 @@ def record_voice_segment(
         recording_dir.mkdir(parents=True, exist_ok=True)
         destination_path = recording_dir / f"{voice.id}.wav"
         shutil.copy2(source_audio_path, destination_path)
+        duration_ms = measure_wav_duration_ms(destination_path)
 
         updated_voices.append(
             voice.model_copy(
@@ -54,6 +59,7 @@ def record_voice_segment(
                     "mode": "record",
                     "audio_file": str(destination_path.relative_to(project_dir)),
                     "transcript": transcribe_audio(destination_path, transcriber),
+                    "duration_ms": duration_ms,
                 }
             )
         )
@@ -62,6 +68,7 @@ def record_voice_segment(
         raise ValueError(f"Unknown voice segment: {voice_id}")
 
     store.save_voices(updated_voices)
+    sync_scenes_with_updated_voices(project_dir, previous_voices, updated_voices)
     project = store.load_project()
     project.updated_at = _utc_timestamp()
     store.save_project(project)

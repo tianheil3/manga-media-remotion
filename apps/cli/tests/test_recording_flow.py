@@ -1,5 +1,7 @@
+import io
 from pathlib import Path
 import sys
+import wave
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
@@ -14,6 +16,17 @@ from apps.cli.app.services.recording import record_voice_segment
 class FakeTranscriber:
     def transcribe(self, audio_path: Path) -> str:
         return f"transcript:{audio_path.name}"
+
+
+def write_wav_file(path: Path, duration_ms: int, sample_rate: int = 8000) -> None:
+    frame_count = int(sample_rate * duration_ms / 1000)
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(b"\x00\x00" * frame_count)
+    path.write_bytes(buffer.getvalue())
 
 
 def create_project_with_voice(tmp_path: Path) -> tuple[Path, FileStore]:
@@ -40,6 +53,7 @@ def create_project_with_voice(tmp_path: Path) -> tuple[Path, FileStore]:
                 speaker="Narrator",
                 voicePreset="narrator-default",
                 audioFile="audio/narration/original.wav",
+                durationMs=300,
             )
         ]
     )
@@ -49,7 +63,7 @@ def create_project_with_voice(tmp_path: Path) -> tuple[Path, FileStore]:
 def test_record_voice_segment_creates_audio_artifact_and_links_recording(tmp_path: Path) -> None:
     project_dir, store = create_project_with_voice(tmp_path)
     source_audio = tmp_path / "take-1.wav"
-    source_audio.write_bytes(b"first take")
+    write_wav_file(source_audio, 450)
 
     updated_voice = record_voice_segment(
         project_dir,
@@ -61,12 +75,14 @@ def test_record_voice_segment_creates_audio_artifact_and_links_recording(tmp_pat
     assert updated_voice.mode == "record"
     assert updated_voice.audio_file == "audio/recorded/voice-001.wav"
     assert updated_voice.transcript == "transcript:voice-001.wav"
-    assert (project_dir / "audio" / "recorded" / "voice-001.wav").read_bytes() == b"first take"
+    assert updated_voice.duration_ms == 450
+    assert (project_dir / "audio" / "recorded" / "voice-001.wav").read_bytes() == source_audio.read_bytes()
 
     persisted_voice = store.load_voices()[0]
     assert persisted_voice.mode == "record"
     assert persisted_voice.audio_file == "audio/recorded/voice-001.wav"
     assert persisted_voice.transcript == "transcript:voice-001.wav"
+    assert persisted_voice.duration_ms == 450
 
 
 def test_rerecord_replaces_prior_output_and_skip_allows_later_editing(tmp_path: Path) -> None:
@@ -75,19 +91,22 @@ def test_rerecord_replaces_prior_output_and_skip_allows_later_editing(tmp_path: 
     skipped_voice = record_voice_segment(project_dir, "voice-001", skip=True)
     assert skipped_voice.mode == "skip"
     assert skipped_voice.audio_file is None
+    assert skipped_voice.duration_ms is None
 
     first_take = tmp_path / "take-1.wav"
     second_take = tmp_path / "take-2.wav"
-    first_take.write_bytes(b"first take")
-    second_take.write_bytes(b"second take")
+    write_wav_file(first_take, 600)
+    write_wav_file(second_take, 900)
 
     record_voice_segment(project_dir, "voice-001", source_audio_path=first_take)
     updated_voice = record_voice_segment(project_dir, "voice-001", source_audio_path=second_take)
 
     assert updated_voice.mode == "record"
     assert updated_voice.audio_file == "audio/recorded/voice-001.wav"
-    assert (project_dir / "audio" / "recorded" / "voice-001.wav").read_bytes() == b"second take"
+    assert updated_voice.duration_ms == 900
+    assert (project_dir / "audio" / "recorded" / "voice-001.wav").read_bytes() == second_take.read_bytes()
 
     persisted_voice = store.load_voices()[0]
     assert persisted_voice.mode == "record"
     assert persisted_voice.audio_file == "audio/recorded/voice-001.wav"
+    assert persisted_voice.duration_ms == 900

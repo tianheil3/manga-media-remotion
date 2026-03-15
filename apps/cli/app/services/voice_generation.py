@@ -4,6 +4,7 @@ from pathlib import Path
 from apps.api.app.integrations.moyin_tts import MoyinTtsClient
 from apps.api.app.models.voice import VoiceSegment
 from apps.api.app.services.file_store import FileStore
+from apps.cli.app.services.audio_duration import measure_wav_duration_ms
 from apps.cli.app.services.script_builder import load_script_entries
 
 
@@ -30,6 +31,7 @@ def generate_voices(project_dir: Path, provider=None) -> list[VoiceSegment]:
         audio_dir.mkdir(parents=True, exist_ok=True)
         audio_path = audio_dir / f"{entry.id}.wav"
         audio_path.write_bytes(audio_bytes)
+        duration_ms = measure_wav_duration_ms(audio_path)
 
         voices.append(
             VoiceSegment(
@@ -41,6 +43,7 @@ def generate_voices(project_dir: Path, provider=None) -> list[VoiceSegment]:
                 speaker=entry.speaker,
                 voicePreset=voice_preset,
                 audioFile=str(audio_path.relative_to(project_dir)),
+                durationMs=duration_ms,
             )
         )
 

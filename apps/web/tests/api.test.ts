@@ -141,3 +141,48 @@ test("loads preview scenes through the web api client", async () => {
   assert.equal(calls[0]?.url, "http://localhost:8000/projects/demo-001/scenes");
   assert.equal(scenes[0]?.subtitleText, "subtitle");
 });
+
+
+test("loads skipped scene review payloads with null audio fields through the web api client", async () => {
+  const client = createApiClient({
+    fetchImpl: async () =>
+      new Response(
+        JSON.stringify([
+          {
+            id: "scene-001",
+            type: "dialogue",
+            image: "images/001.png",
+            subtitleText: "subtitle",
+            voiceId: "voice-001",
+            audio: null,
+            durationMs: 1500,
+            speaker: "Hero",
+            stylePreset: "default",
+            cameraMotion: null,
+            transition: "cut",
+            audioMetadata: {
+              id: "voice-001",
+              frameId: "frame-001",
+              mode: "skip",
+              role: "character",
+              speaker: "Hero",
+              audioFile: null,
+              durationMs: null,
+              replaceAudioPath: "/replace",
+              skipRecordingPath: "/skip",
+            },
+          },
+        ]),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }
+      ),
+  });
+
+  const scenes = await client.getSceneReview("demo-001");
+
+  assert.equal(scenes[0]?.audio, null);
+  assert.equal(scenes[0]?.audioMetadata?.mode, "skip");
+  assert.equal(scenes[0]?.audioMetadata?.durationMs, null);
+});

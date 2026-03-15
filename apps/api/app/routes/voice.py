@@ -8,6 +8,7 @@ from apps.api.app.models.scene import Scene
 from apps.api.app.models.voice import VoiceSegment
 from apps.api.app.services.file_store import FileStore
 from apps.cli.app.services.recording import record_voice_segment
+from apps.cli.app.services.scene_sync import resolve_scene_voice_ids, resolve_voice_for_scene
 
 router = APIRouter(prefix="/projects", tags=["voice"])
 
@@ -31,12 +32,16 @@ def get_scene_review(project_id: str, request: Request) -> list[dict[str, object
     store = _project_store(project_id, request)
     scenes = _load_optional_list(store.load_scenes)
     voices = _load_optional_list(store.load_voices)
-    voices_by_audio = {voice.audio_file: voice for voice in voices if voice.audio_file}
+    scene_voice_ids = resolve_scene_voice_ids(scenes, voices)
+    voices_by_id = {voice.id: voice for voice in voices}
 
     payload: list[dict[str, object]] = []
     for scene in scenes:
+        voice_id = scene.voice_id or scene_voice_ids.get(scene.id)
+        resolved_voice = voices_by_id.get(voice_id) if voice_id is not None else resolve_voice_for_scene(scene, voices)
         scene_payload = scene.model_dump(mode="json", by_alias=True)
-        scene_payload["audioMetadata"] = _audio_metadata(project_id, voices_by_audio.get(scene.audio))
+        scene_payload["voiceId"] = voice_id
+        scene_payload["audioMetadata"] = _audio_metadata(project_id, resolved_voice)
         payload.append(scene_payload)
 
     return payload

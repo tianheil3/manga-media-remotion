@@ -1,6 +1,8 @@
+import io
 import json
 from pathlib import Path
 import sys
+import wave
 
 from typer.testing import CliRunner
 
@@ -18,12 +20,24 @@ runner = CliRunner()
 
 class FakeTtsProvider:
     def synthesize(self, text: str, voice_preset: str) -> bytes:
-        return f"{voice_preset}:{text}".encode("utf-8")
+        duration_ms = 250 if voice_preset == "narrator-default" else 375
+        return build_wav_bytes(duration_ms)
 
 
 class FailingTtsProvider:
     def synthesize(self, text: str, voice_preset: str) -> bytes:
         raise RuntimeError("provider exploded")
+
+
+def build_wav_bytes(duration_ms: int, sample_rate: int = 8000) -> bytes:
+    frame_count = int(sample_rate * duration_ms / 1000)
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(b"\x00\x00" * frame_count)
+    return buffer.getvalue()
 
 
 def create_project_with_script(tmp_path: Path) -> tuple[Path, Path]:
@@ -101,7 +115,7 @@ def test_voice_command_persists_audio_paths_and_voice_presets(
             "voicePreset": "narrator-default",
             "audioFile": "audio/narration/script-bubble-001.wav",
             "transcript": None,
-            "durationMs": None,
+            "durationMs": 250,
         },
         {
             "id": "voice-script-bubble-002",
@@ -113,15 +127,15 @@ def test_voice_command_persists_audio_paths_and_voice_presets(
             "voicePreset": "character-default",
             "audioFile": "audio/characters/script-bubble-002.wav",
             "transcript": None,
-            "durationMs": None,
+            "durationMs": 375,
         },
     ]
 
     assert (project_dir / "audio" / "narration" / "script-bubble-001.wav").read_bytes() == (
-        b"narrator-default:Narration voice"
+        build_wav_bytes(250)
     )
     assert (project_dir / "audio" / "characters" / "script-bubble-002.wav").read_bytes() == (
-        b"character-default:Dialogue voice"
+        build_wav_bytes(375)
     )
 
 

@@ -1,6 +1,8 @@
+import io
 import json
 from pathlib import Path
 import sys
+import wave
 
 from typer.testing import CliRunner
 
@@ -15,6 +17,18 @@ from apps.api.app.services.file_store import FileStore
 from apps.cli.app.main import app
 
 runner = CliRunner()
+
+
+def write_wav_file(path: Path, duration_ms: int, sample_rate: int = 8000) -> None:
+    frame_count = int(sample_rate * duration_ms / 1000)
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(b"\x00\x00" * frame_count)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(buffer.getvalue())
 
 
 def create_project_for_scene_builder(tmp_path: Path) -> tuple[Path, Path]:
@@ -99,6 +113,8 @@ def create_project_for_scene_builder(tmp_path: Path) -> tuple[Path, Path]:
             ),
         ]
     )
+    write_wav_file(project_dir / "audio" / "narration" / "script-bubble-001.wav", 1200)
+    write_wav_file(project_dir / "audio" / "characters" / "script-bubble-003.wav", 800)
     (project_dir / "script" / "script.json").write_text(
         json.dumps(
             [
@@ -160,6 +176,7 @@ def test_build_scenes_creates_render_ready_order_with_audio_padding_and_silent_f
             "type": "narration",
             "image": "images/001.png",
             "subtitleText": "Narration subtitle",
+            "voiceId": "voice-script-bubble-001",
             "audio": "audio/narration/script-bubble-001.wav",
             "durationMs": 1400,
             "speaker": "Narrator",
@@ -172,6 +189,7 @@ def test_build_scenes_creates_render_ready_order_with_audio_padding_and_silent_f
             "type": "silent",
             "image": "images/002.png",
             "subtitleText": None,
+            "voiceId": None,
             "audio": None,
             "durationMs": 1500,
             "speaker": None,
@@ -184,6 +202,7 @@ def test_build_scenes_creates_render_ready_order_with_audio_padding_and_silent_f
             "type": "dialogue",
             "image": "images/003.png",
             "subtitleText": "Dialogue subtitle",
+            "voiceId": "voice-script-bubble-003",
             "audio": "audio/characters/script-bubble-003.wav",
             "durationMs": 1000,
             "speaker": "Hero",
@@ -241,6 +260,78 @@ def test_build_scenes_requires_imported_frames_before_creating_scenes(tmp_path: 
     assert "No frames found. Import images before building scenes." in result.stdout
 
 
+def test_build_scenes_measures_audio_files_when_voice_duration_is_missing(tmp_path: Path) -> None:
+    workspace_root, project_dir = create_project_for_scene_builder(tmp_path)
+    store = FileStore(project_dir)
+    voices = store.load_voices()
+    store.save_voices(
+        [
+            voices[0].model_copy(update={"duration_ms": None}),
+            voices[1],
+        ]
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "build-scenes",
+            "demo-001",
+            "--padding-ms",
+            "200",
+            "--workspace-root",
+            str(workspace_root),
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+
+    scenes_payload = json.loads((project_dir / "script" / "scenes.json").read_text(encoding="utf-8"))
+    assert scenes_payload[0]["durationMs"] == 1400
+
+
+def test_build_scenes_uses_silent_duration_when_voice_is_skipped(tmp_path: Path) -> None:
+    workspace_root, project_dir = create_project_for_scene_builder(tmp_path)
+    store = FileStore(project_dir)
+    voices = store.load_voices()
+    store.save_voices(
+        [
+            voices[0],
+            voices[1].model_copy(update={"mode": "skip", "audio_file": None, "duration_ms": None}),
+        ]
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "build-scenes",
+            "demo-001",
+            "--padding-ms",
+            "200",
+            "--silent-duration-ms",
+            "1500",
+            "--workspace-root",
+            str(workspace_root),
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+
+    scenes_payload = json.loads((project_dir / "script" / "scenes.json").read_text(encoding="utf-8"))
+    assert scenes_payload[2] == {
+        "id": "scene-003",
+        "type": "dialogue",
+        "image": "images/003.png",
+        "subtitleText": "Dialogue subtitle",
+        "voiceId": "voice-script-bubble-003",
+        "audio": None,
+        "durationMs": 1500,
+        "speaker": "Hero",
+        "stylePreset": "default",
+        "cameraMotion": None,
+        "transition": "cut",
+    }
+
+
 def test_build_scenes_falls_back_to_voice_text_when_script_file_is_missing(tmp_path: Path) -> None:
     workspace_root, project_dir = create_project_for_scene_builder(tmp_path)
     (project_dir / "script" / "script.json").unlink()
@@ -264,6 +355,7 @@ def test_build_scenes_falls_back_to_voice_text_when_script_file_is_missing(tmp_p
             "type": "narration",
             "image": "images/001.png",
             "subtitleText": "Narration voice",
+            "voiceId": "voice-script-bubble-001",
             "audio": "audio/narration/script-bubble-001.wav",
             "durationMs": 1400,
             "speaker": "Narrator",
@@ -276,6 +368,7 @@ def test_build_scenes_falls_back_to_voice_text_when_script_file_is_missing(tmp_p
             "type": "silent",
             "image": "images/002.png",
             "subtitleText": None,
+            "voiceId": None,
             "audio": None,
             "durationMs": 1500,
             "speaker": None,
@@ -288,6 +381,7 @@ def test_build_scenes_falls_back_to_voice_text_when_script_file_is_missing(tmp_p
             "type": "dialogue",
             "image": "images/003.png",
             "subtitleText": "Dialogue voice",
+            "voiceId": "voice-script-bubble-003",
             "audio": "audio/characters/script-bubble-003.wav",
             "durationMs": 1000,
             "speaker": "Hero",
