@@ -1,12 +1,24 @@
 type ElementType = string | ((...args: any[]) => unknown);
 type ElementProps = Record<string, unknown> | null | undefined;
 
+function normalizeChildren(children: unknown[]) {
+  if (children.length === 0) {
+    return undefined;
+  }
+
+  if (children.length === 1) {
+    return children[0];
+  }
+
+  return children;
+}
+
 function fallbackCreateElement(type: ElementType, props: ElementProps, ...children: unknown[]) {
   return {
     type,
     props: {
       ...(props ?? {}),
-      children,
+      children: normalizeChildren(children),
     },
   };
 }

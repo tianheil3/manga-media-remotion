@@ -9,6 +9,9 @@
     "react-dom": "18.3.1"
   },
   "scripts": {
+    "render": "node --import ../../tools/register-tsx.mjs ./src/cli.ts",
+    "render:preview": "npm run render -- --kind preview",
+    "render:final": "npm run render -- --kind final",
     "test": "node --import ../../tools/register-tsx.mjs --test tests/*.test.ts tests/*.test.tsx"
   }
 }

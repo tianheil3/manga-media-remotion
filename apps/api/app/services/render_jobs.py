@@ -1,12 +1,10 @@
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-
-from apps.api.app.services.file_store import FileStore
-
 
 class RenderJob(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -124,48 +122,58 @@ def _find_job(jobs: list[RenderJob], job_id: str) -> RenderJob:
 
 
 def _render_job_output(project_dir: Path, job: RenderJob) -> None:
-    store = FileStore(project_dir)
-    try:
-        project = store.load_project()
-    except FileNotFoundError as error:
-        raise RuntimeError("Missing project.json for render job.") from error
-
-    try:
-        scenes = store.load_scenes()
-    except FileNotFoundError as error:
-        raise RuntimeError("Missing script/scenes.json for render job.") from error
-
-    if not scenes:
-        raise RuntimeError("No scenes available for render.")
-
     output_path = Path(project_dir) / job.output_file
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    result = subprocess.run(
+        _render_command(project_dir, job),
+        capture_output=True,
+        check=False,
+        cwd=_repo_root(),
+        text=True,
+    )
 
-    lines = [
-        "Manga Media Render Artifact",
-        f"job={job.id}",
-        f"project={project.id}",
-        f"title={project.title}",
-        f"kind={job.kind}",
-        f"scenes={len(scenes)}",
-    ]
-    for scene in scenes:
-        lines.append(
-            "|".join(
-                [
-                    scene.id,
-                    scene.type,
-                    scene.image,
-                    str(scene.duration_ms),
-                    scene.subtitle_text or "",
-                    scene.audio or "",
-                ]
-            )
-        )
+    if result.returncode != 0:
+        raise RuntimeError(_extract_render_error(result))
 
-    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if not output_path.exists():
+        raise RuntimeError("Render output is missing.")
     if output_path.stat().st_size == 0:
         raise RuntimeError("Render output is empty.")
+
+
+def _render_command(project_dir: Path, job: RenderJob) -> list[str]:
+    return [
+        "npm",
+        "run",
+        "render",
+        "--workspace",
+        "apps/remotion",
+        "--",
+        "--project-dir",
+        str(project_dir),
+        "--kind",
+        job.kind,
+        "--output-file",
+        job.output_file,
+    ]
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[4]
+
+
+def _extract_render_error(result: subprocess.CompletedProcess[str]) -> str:
+    for line in reversed((result.stderr + "\n" + result.stdout).splitlines()):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("npm error"):
+            continue
+        if stripped.startswith(">"):
+            continue
+        return stripped.removeprefix("Error: ")
+
+    return "Renderer command failed."
 
 
 def _utc_timestamp() -> str:
