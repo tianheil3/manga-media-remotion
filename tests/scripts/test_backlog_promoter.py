@@ -102,3 +102,73 @@ def test_validate_config_rejects_cycles() -> None:
                 ],
             }
         )
+
+
+def test_find_eligible_promotions_requires_all_dependencies_to_be_done() -> None:
+    module = load_module()
+    config = {
+        "version": 1,
+        "projectSlug": "demo-project",
+        "teamKey": "TIA",
+        "sourceState": "Backlog",
+        "targetState": "Todo",
+        "promotions": [
+            {"issue": "TIA-200", "dependsOn": ["TIA-1", "TIA-2"]},
+        ],
+    }
+    issue_states = {
+        "TIA-1": "Done",
+        "TIA-2": "Done",
+        "TIA-200": "Backlog",
+    }
+
+    assert module.find_eligible_promotions(config, issue_states) == ["TIA-200"]
+
+    issue_states["TIA-2"] = "In Progress"
+    assert module.find_eligible_promotions(config, issue_states) == []
+
+
+def test_find_eligible_promotions_skips_targets_not_in_source_state() -> None:
+    module = load_module()
+    config = {
+        "version": 1,
+        "projectSlug": "demo-project",
+        "teamKey": "TIA",
+        "sourceState": "Backlog",
+        "targetState": "Todo",
+        "promotions": [
+            {"issue": "TIA-201", "dependsOn": ["TIA-1"]},
+        ],
+    }
+    issue_states = {
+        "TIA-1": "Done",
+        "TIA-201": "Todo",
+    }
+
+    assert module.find_eligible_promotions(config, issue_states) == []
+
+
+def test_find_eligible_promotions_returns_multiple_independent_targets() -> None:
+    module = load_module()
+    config = {
+        "version": 1,
+        "projectSlug": "demo-project",
+        "teamKey": "TIA",
+        "sourceState": "Backlog",
+        "targetState": "Todo",
+        "promotions": [
+            {"issue": "TIA-202", "dependsOn": ["TIA-1"]},
+            {"issue": "TIA-203", "dependsOn": ["TIA-2"]},
+            {"issue": "TIA-204", "dependsOn": ["TIA-3"]},
+        ],
+    }
+    issue_states = {
+        "TIA-1": "Done",
+        "TIA-2": "Done",
+        "TIA-3": "Human Review",
+        "TIA-202": "Backlog",
+        "TIA-203": "Backlog",
+        "TIA-204": "Backlog",
+    }
+
+    assert module.find_eligible_promotions(config, issue_states) == ["TIA-202", "TIA-203"]
