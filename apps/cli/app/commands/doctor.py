@@ -1,5 +1,6 @@
 import os
 import shutil
+from importlib import import_module
 
 import typer
 
@@ -8,6 +9,11 @@ from apps.cli.app.services.ocr_service import validate_ocr_setup
 from apps.cli.app.services.translation_service import TranslationServiceError, get_translation_service
 
 REQUIRED_EXECUTABLES = ("python", "node", "ffmpeg")
+RENDER_MODULES = (
+    ("cv2", "opencv-python"),
+    ("numpy", "numpy"),
+    ("PIL", "Pillow"),
+)
 
 
 def doctor() -> None:
@@ -21,6 +27,13 @@ def doctor() -> None:
 
         failures.append(executable)
         typer.echo(f"MISSING {executable}")
+
+    try:
+        validate_render_setup()
+        typer.echo("OK render opencv-python numpy Pillow")
+    except RuntimeError as exc:
+        failures.append("render")
+        typer.echo(f"MISSING render {exc}")
 
     try:
         validate_ocr_setup()
@@ -49,3 +62,19 @@ def doctor() -> None:
         raise typer.Exit(code=1)
 
     typer.echo("All required dependencies are available.")
+
+
+def validate_render_setup() -> None:
+    missing_packages: list[str] = []
+
+    for module_name, package_name in RENDER_MODULES:
+        try:
+            import_module(module_name)
+        except ImportError:
+            missing_packages.append(package_name)
+
+    if missing_packages:
+        package_list = " ".join(missing_packages)
+        raise RuntimeError(
+            f"Render dependencies are not installed. Install {package_list}."
+        )

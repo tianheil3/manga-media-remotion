@@ -14,6 +14,9 @@ def test_setup_docs_cover_local_development_requirements() -> None:
     assert "Python" in local_dev
     assert "Node.js" in local_dev
     assert "ffmpeg" in local_dev
+    assert "opencv-python" in local_dev
+    assert "numpy" in local_dev
+    assert "Pillow" in local_dev
     assert "apps/cli" in local_dev
     assert "apps/api" in local_dev
     assert "apps/remotion" in local_dev

@@ -9,7 +9,7 @@
 
 ## Install Python Dependencies
 
-Create or activate your Python environment, then install the runtime and test dependencies used by `apps/cli` and `apps/api`.
+Create or activate your Python environment, then install the runtime and test dependencies used by `apps/cli`, `apps/api`, and the local video renderer used by `apps/remotion`.
 
 Example:
 
@@ -17,6 +17,12 @@ Example:
 python -m venv .venv
 source .venv/bin/activate
 pip install fastapi uvicorn typer pytest
+```
+
+Install the renderer packages needed for real preview and final MP4 output:
+
+```bash
+pip install opencv-python numpy Pillow
 ```
 
 Install any additional OCR or audio dependencies from the dedicated setup guides before running pipeline stages that need them.
@@ -27,7 +33,7 @@ After installing the CLI dependencies and provider configuration, run the setup 
 python -m apps.cli.app.main doctor
 ```
 
-`doctor` verifies media tooling (`python`, `node`, `ffmpeg`) plus the active OCR, translation, and TTS prerequisites.
+`doctor` verifies media tooling (`python`, `node`, `ffmpeg`), local render dependencies (`opencv-python`, `numpy`, `Pillow`), plus the active OCR, translation, and TTS prerequisites.
 
 ## Install Node Dependencies
 

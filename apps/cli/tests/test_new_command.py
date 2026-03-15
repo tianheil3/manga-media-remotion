@@ -153,6 +153,39 @@ def test_doctor_reports_missing_provider_prerequisites(monkeypatch) -> None:
     assert "MOYIN_TTS_API_KEY" in result.stdout
 
 
+def test_doctor_reports_missing_render_prerequisites(monkeypatch) -> None:
+    dependencies = {
+        "python": "/usr/bin/python3",
+        "node": "/usr/bin/node",
+        "ffmpeg": "/usr/bin/ffmpeg",
+    }
+    fake_manga_ocr = types.ModuleType("manga_ocr")
+    fake_manga_ocr.MangaOcr = object
+    monkeypatch.setitem(sys.modules, "manga_ocr", fake_manga_ocr)
+    monkeypatch.setenv("TRANSLATION_PROVIDER", "deepl")
+    monkeypatch.setenv("DEEPL_API_KEY", "secret-token")
+    monkeypatch.setenv("MOYIN_TTS_BASE_URL", "https://example.invalid/tts")
+    monkeypatch.setenv("MOYIN_TTS_API_KEY", "secret-token")
+    monkeypatch.setattr(
+        doctor_command.shutil,
+        "which",
+        lambda executable: dependencies.get(executable),
+    )
+    monkeypatch.setattr(
+        doctor_command,
+        "validate_render_setup",
+        lambda: (_ for _ in ()).throw(
+            RuntimeError("Render dependencies are not installed. Install opencv-python numpy Pillow.")
+        ),
+    )
+
+    result = runner.invoke(app, ["doctor"])
+
+    assert result.exit_code == 1, result.stdout
+    assert "MISSING render Render dependencies are not installed." in result.stdout
+    assert "opencv-python numpy Pillow" in result.stdout
+
+
 def test_doctor_reports_configured_provider_prerequisites(monkeypatch) -> None:
     dependencies = {
         "python": "/usr/bin/python3",
@@ -171,6 +204,7 @@ def test_doctor_reports_configured_provider_prerequisites(monkeypatch) -> None:
         "which",
         lambda executable: dependencies.get(executable),
     )
+    monkeypatch.setattr(doctor_command, "validate_render_setup", lambda: None)
 
     result = runner.invoke(app, ["doctor"])
 
@@ -179,5 +213,6 @@ def test_doctor_reports_configured_provider_prerequisites(monkeypatch) -> None:
     assert "OK node" in result.stdout
     assert "OK ffmpeg" in result.stdout
     assert "OK OCR" in result.stdout
+    assert "OK render" in result.stdout
     assert "OK translation" in result.stdout
     assert "OK TTS" in result.stdout
