@@ -11,6 +11,10 @@ from apps.cli.app.commands.run import run_command
 from apps.cli.app.commands.review import review_command
 from apps.cli.app.commands.translate import translate_command
 from apps.cli.app.commands.voice import voice_command
+from apps.cli.app.commands.workspace_portability import (
+    export_workspace_command,
+    import_workspace_command,
+)
 
 app = typer.Typer(help="CLI workflow for the local-first manga video MVP.")
 
@@ -26,6 +30,8 @@ app.command("repair")(repair_command)
 app.command("review")(review_command)
 app.command("translate")(translate_command)
 app.command("voice")(voice_command)
+app.command("export-workspace")(export_workspace_command)
+app.command("import-workspace")(import_workspace_command)
 
 
 if __name__ == "__main__":

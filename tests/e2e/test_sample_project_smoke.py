@@ -169,3 +169,56 @@ def test_sample_project_smoke_runs_cli_api_and_preview_render(tmp_path: Path) ->
     assert render_response.status_code == 200
     assert Path(render_response.path).exists()
     assert Path(render_response.path).read_bytes()[4:8] == b"ftyp"
+
+
+def test_sample_project_portability_smoke_preserves_cli_progress_and_integrity(tmp_path: Path) -> None:
+    source_workspace_root = copy_fixture_project(tmp_path / "source")
+    archive_path = tmp_path / "demo-001.tar.gz"
+    destination_workspace_root = tmp_path / "destination" / "workspace"
+
+    export_result = runner.invoke(
+        app,
+        [
+            "export-workspace",
+            PROJECT_ID,
+            str(archive_path),
+            "--workspace-root",
+            str(source_workspace_root),
+        ],
+    )
+
+    assert export_result.exit_code == 0, export_result.stdout
+    assert archive_path.is_file()
+
+    import_result = runner.invoke(
+        app,
+        [
+            "import-workspace",
+            str(archive_path),
+            "--workspace-root",
+            str(destination_workspace_root),
+        ],
+    )
+
+    assert import_result.exit_code == 0, import_result.stdout
+
+    run_result = runner.invoke(
+        app,
+        ["run", PROJECT_ID, "--workspace-root", str(destination_workspace_root)],
+    )
+
+    assert run_result.exit_code == 0, run_result.stdout
+    assert "[done] import-images" in run_result.stdout
+    assert "[done] ocr" in run_result.stdout
+    assert "[done] review" in run_result.stdout
+    assert "[done] translate" in run_result.stdout
+    assert "[done] voice" in run_result.stdout
+    assert "[done] build-scenes" in run_result.stdout
+
+    integrity_result = runner.invoke(
+        app,
+        ["integrity", PROJECT_ID, "--workspace-root", str(destination_workspace_root)],
+    )
+
+    assert integrity_result.exit_code == 0, integrity_result.stdout
+    assert "Project integrity OK." in integrity_result.stdout

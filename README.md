@@ -48,6 +48,13 @@ npm run render --workspace apps/remotion -- --help
 
 `apps/web` is a real local review app, and `apps/remotion` is the renderer CLI that the API uses for preview and final jobs.
 
+Portable project workspaces can be moved between machines with:
+
+```bash
+python -m apps.cli.app.main export-workspace demo-001 /tmp/demo-001.tar.gz --workspace-root workspace
+python -m apps.cli.app.main import-workspace /tmp/demo-001.tar.gz --workspace-root workspace
+```
+
 Package-level validation:
 
 ```bash
@@ -79,6 +86,8 @@ bash scripts/smoke-sample-project.sh
 ```
 
 `scripts/verify-strict.sh` includes this smoke command so it can be rerun during regression checks without depending on ad hoc local workspace state.
+
+That same fixture shape is also used by the portability coverage to verify that an exported archive can be imported and still resume review/render progress checks.
 
 ## Symphony Auto-Land
 

@@ -20,6 +20,10 @@ def test_setup_docs_cover_local_development_requirements() -> None:
     assert "apps/cli" in local_dev
     assert "apps/api" in local_dev
     assert "python -m apps.cli.app.main --help" in local_dev
+    assert "python -m apps.cli.app.main export-workspace" in readme
+    assert "python -m apps.cli.app.main import-workspace" in readme
+    assert "python -m apps.cli.app.main export-workspace" in local_dev
+    assert "python -m apps.cli.app.main import-workspace" in local_dev
     assert "uvicorn apps.api.app.main:app --reload" in local_dev
     assert "npm run dev --workspace apps/web" in local_dev
     assert "apps/remotion" in local_dev

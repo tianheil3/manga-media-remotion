@@ -90,6 +90,15 @@ python -m apps.cli.app.main new demo-001 --title "Demo Project" --workspace-root
 python -m apps.cli.app.main run demo-001 --workspace-root workspace
 ```
 
+To move a prepared project workspace to another machine or session, export it as a portable archive and import it into another workspace root:
+
+```bash
+python -m apps.cli.app.main export-workspace demo-001 /tmp/demo-001.tar.gz --workspace-root workspace
+python -m apps.cli.app.main import-workspace /tmp/demo-001.tar.gz --workspace-root workspace
+```
+
+The archive preserves the full `workspace/<project-id>/` directory so review data, script data, audio, renders, and any cached project state move together.
+
 ### API
 
 Start the FastAPI service from the repository root:
