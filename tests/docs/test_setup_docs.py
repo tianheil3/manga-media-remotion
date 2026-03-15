@@ -13,13 +13,20 @@ def test_setup_docs_cover_local_development_requirements() -> None:
     assert "Local Development" in readme
     assert "Python" in local_dev
     assert "Node.js" in local_dev
+    assert "ffmpeg" in local_dev
     assert "apps/cli" in local_dev
     assert "apps/api" in local_dev
     assert "apps/remotion" in local_dev
+    assert "doctor" in readme
+    assert "doctor" in local_dev
     assert "MOYIN_TTS_BASE_URL" in moyin_env
     assert "MOYIN_TTS_API_KEY" in moyin_env
+    assert "doctor" in moyin_env
     assert "TRANSLATION_PROVIDER" in translation_env
     assert "DEEPL_API_KEY" in translation_env
     assert "DEEPL_BASE_URL" in translation_env
+    assert "doctor" in translation_env
     assert "manga-ocr" in mangaocr
+    assert "manga_ocr" in mangaocr
     assert "pip install" in mangaocr
+    assert "doctor" in mangaocr

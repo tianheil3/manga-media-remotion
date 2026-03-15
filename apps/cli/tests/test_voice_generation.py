@@ -150,3 +150,17 @@ def test_voice_command_surfaces_provider_errors(tmp_path: Path, monkeypatch) -> 
 
     assert result.exit_code == 1, result.stdout
     assert "TTS generation failed for script-bubble-001: provider exploded" in result.stdout
+
+
+def test_voice_command_surfaces_missing_tts_configuration(tmp_path: Path, monkeypatch) -> None:
+    workspace_root, _project_dir = create_project_with_script(tmp_path)
+    monkeypatch.delenv("MOYIN_TTS_BASE_URL", raising=False)
+    monkeypatch.delenv("MOYIN_TTS_API_KEY", raising=False)
+
+    result = runner.invoke(
+        app,
+        ["voice", "demo-001", "--workspace-root", str(workspace_root)],
+    )
+
+    assert result.exit_code == 1, result.stdout
+    assert "Moyin TTS is not configured. Set MOYIN_TTS_BASE_URL and MOYIN_TTS_API_KEY." in result.stdout

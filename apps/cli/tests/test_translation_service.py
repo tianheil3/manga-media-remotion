@@ -60,7 +60,18 @@ def test_get_translation_service_requires_deepl_api_key(monkeypatch) -> None:
 
     with pytest.raises(
         TranslationServiceError,
-        match="DeepL translation is not configured. Set DEEPL_API_KEY",
+        match="Set TRANSLATION_PROVIDER=deepl and DEEPL_API_KEY",
+    ):
+        get_translation_service()
+
+
+def test_get_translation_service_rejects_unsupported_provider(monkeypatch) -> None:
+    monkeypatch.setenv("TRANSLATION_PROVIDER", "bogus")
+    monkeypatch.delenv("DEEPL_API_KEY", raising=False)
+
+    with pytest.raises(
+        TranslationServiceError,
+        match="Unsupported translation provider 'bogus'. Set TRANSLATION_PROVIDER=deepl.",
     ):
         get_translation_service()
 

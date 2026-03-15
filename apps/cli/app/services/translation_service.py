@@ -31,7 +31,7 @@ class DeepLTranslationService:
         base_url = os.environ.get("DEEPL_BASE_URL", "https://api-free.deepl.com/v2/translate")
         if not api_key:
             raise TranslationServiceError(
-                "DeepL translation is not configured. Set DEEPL_API_KEY and optionally DEEPL_BASE_URL."
+                "DeepL translation is not configured. Set TRANSLATION_PROVIDER=deepl and DEEPL_API_KEY; optionally DEEPL_BASE_URL."
             )
 
         return cls(base_url=base_url, api_key=api_key)

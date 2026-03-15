@@ -2,6 +2,7 @@ from pathlib import Path
 
 import typer
 
+from apps.api.app.integrations.moyin_tts import MoyinTtsError
 from apps.cli.app.services.voice_generation import generate_voices
 
 
@@ -24,7 +25,7 @@ def voice_command(
 
     try:
         voices = generate_voices(project_dir)
-    except ValueError as exc:
+    except (MoyinTtsError, ValueError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
 
