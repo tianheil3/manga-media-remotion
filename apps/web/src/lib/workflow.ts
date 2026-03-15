@@ -52,15 +52,43 @@ export async function pollRenderJobUntilSettled(input: {
   jobId: string;
   getRenderJob: (projectId: string, jobId: string) => Promise<RenderJob>;
   wait: () => Promise<void>;
+  onUpdate?: (job: RenderJob) => void;
 }) {
   for (;;) {
     const job = await input.getRenderJob(input.projectId, input.jobId);
+    input.onUpdate?.(job);
     if (isTerminalStatus(job.status)) {
       return job;
     }
 
     await input.wait();
   }
+}
+
+export async function triggerRenderJobAndPoll(input: {
+  projectId: string;
+  kind: RenderJob["kind"];
+  createRenderJob: (
+    projectId: string,
+    payload: { kind: RenderJob["kind"] }
+  ) => Promise<RenderJob>;
+  getRenderJob: (projectId: string, jobId: string) => Promise<RenderJob>;
+  wait: () => Promise<void>;
+  onUpdate?: (job: RenderJob) => void;
+}) {
+  const createdJob = await input.createRenderJob(input.projectId, { kind: input.kind });
+  input.onUpdate?.(createdJob);
+  if (isTerminalStatus(createdJob.status)) {
+    return createdJob;
+  }
+
+  return pollRenderJobUntilSettled({
+    projectId: input.projectId,
+    jobId: createdJob.id,
+    getRenderJob: input.getRenderJob,
+    wait: input.wait,
+    onUpdate: input.onUpdate,
+  });
 }
 
 function stageCount(
@@ -120,7 +148,9 @@ function previewNotice(
 
   return {
     tone: "warning",
-    message: "Preview render failed.",
+    message: activeJob.errorMessage
+      ? `Preview render failed. ${activeJob.errorMessage}`
+      : "Preview render failed.",
   };
 }
 

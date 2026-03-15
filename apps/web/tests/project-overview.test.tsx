@@ -79,6 +79,29 @@ test("preview page mounts a preview container and shows render progress", () => 
   assert.match(markup, /data-scene-type="narration"/);
 });
 
+test("preview page shows persisted render failures", () => {
+  const markup = renderToStaticMarkup(
+    React.createElement(PreviewPage, {
+      project,
+      scenes,
+      activeJob: {
+        id: "render-preview-001",
+        projectId: "demo-001",
+        kind: "preview",
+        status: "failed",
+        outputFile: "renders/preview.mp4",
+        createdAt: "2026-03-14T00:00:00.000Z",
+        updatedAt: "2026-03-14T00:00:01.000Z",
+        errorMessage: "Missing script/scenes.json",
+        statusPath: "/projects/demo-001/render-jobs/render-preview-001",
+      },
+    })
+  );
+
+  assert.match(markup, /Preview render failed\./);
+  assert.match(markup, /Missing script\/scenes\.json/);
+});
+
 test("preview page loader fetches project scene data and active render jobs", async () => {
   const calls = [];
   const preview = await loadPreviewPage({
@@ -205,8 +228,31 @@ test("app loader fetches frame review and scene review data for the shell", asyn
   assert.equal(loaded.sceneReview?.scenes[0]?.id, "scene-001");
 });
 
-test("preview page can trigger preview renders through the api contract", async () => {
+test("preview page can trigger preview renders and poll job updates", async () => {
   const calls = [];
+  const updates = [];
+  const states = [
+    {
+      id: "render-preview-002",
+      projectId: "demo-001",
+      kind: "preview",
+      status: "running",
+      outputFile: "renders/preview.mp4",
+      createdAt: "2026-03-14T00:00:00.000Z",
+      updatedAt: "2026-03-14T00:00:02.000Z",
+      statusPath: "/projects/demo-001/render-jobs/render-preview-002",
+    },
+    {
+      id: "render-preview-002",
+      projectId: "demo-001",
+      kind: "preview",
+      status: "completed",
+      outputFile: "renders/preview.mp4",
+      createdAt: "2026-03-14T00:00:00.000Z",
+      updatedAt: "2026-03-14T00:00:03.000Z",
+      statusPath: "/projects/demo-001/render-jobs/render-preview-002",
+    },
+  ];
   const api = {
     createRenderJob: async (projectId, payload) => {
       calls.push({ projectId, payload });
@@ -221,11 +267,19 @@ test("preview page can trigger preview renders through the api contract", async 
         statusPath: `/projects/${projectId}/render-jobs/render-preview-002`,
       };
     },
+    getRenderJob: async (projectId, jobId) => {
+      calls.push({ projectId, jobId });
+      return states.shift();
+    },
   };
 
   const job = await triggerPreviewRender({
     api,
     projectId: "demo-001",
+    onJobUpdate: (nextJob) => {
+      updates.push(nextJob.status);
+    },
+    wait: async () => {},
   });
 
   assert.deepEqual(calls, [
@@ -233,6 +287,15 @@ test("preview page can trigger preview renders through the api contract", async 
       projectId: "demo-001",
       payload: { kind: "preview" },
     },
+    {
+      projectId: "demo-001",
+      jobId: "render-preview-002",
+    },
+    {
+      projectId: "demo-001",
+      jobId: "render-preview-002",
+    },
   ]);
-  assert.equal(job.status, "queued");
+  assert.deepEqual(updates, ["queued", "running", "completed"]);
+  assert.equal(job.status, "completed");
 });

@@ -52,7 +52,9 @@ def test_verify_strict_stops_after_the_first_failure(tmp_path: Path) -> None:
     assert "python -c \"raise SystemExit(7)\"" in result.stderr
 
 
-def test_verify_strict_reports_missing_node_workspace_dependencies(tmp_path: Path) -> None:
+def test_verify_strict_runs_workspace_commands_without_prechecking_node_modules(
+    tmp_path: Path,
+) -> None:
     repo = tmp_path / "repo"
     scripts_dir = repo / "scripts"
     packages_dir = repo / "packages" / "schema"
@@ -70,7 +72,6 @@ def test_verify_strict_reports_missing_node_workspace_dependencies(tmp_path: Pat
             '  "name": "@temp/schema",\n'
             '  "private": true,\n'
             '  "type": "module",\n'
-            '  "dependencies": {"zod": "^4.1.11"},\n'
             '  "scripts": {"test": "node --test tests/*.test.js"}\n'
             '}\n'
         ),
@@ -78,7 +79,11 @@ def test_verify_strict_reports_missing_node_workspace_dependencies(tmp_path: Pat
     )
     tests_dir = packages_dir / "tests"
     tests_dir.mkdir()
-    (tests_dir / "schema.test.js").write_text('import "zod";\n', encoding="utf-8")
+    (tests_dir / "schema.test.js").write_text(
+        'import test from "node:test";\n'
+        'test("workspace test", () => {});\n',
+        encoding="utf-8",
+    )
 
     env = os.environ.copy()
     env["STRICT_VALIDATION_COMMANDS"] = "npm test --workspace packages/schema"
@@ -91,6 +96,7 @@ def test_verify_strict_reports_missing_node_workspace_dependencies(tmp_path: Pat
         check=False,
     )
 
-    assert result.returncode == 1
-    assert "Node workspace dependencies are missing" in result.stderr
-    assert "npm install" in result.stderr
+    assert result.returncode == 0, result.stderr
+    assert "Running strict validation: npm test --workspace packages/schema" in result.stdout
+    assert "ℹ pass 1" in result.stdout
+    assert "Strict validation passed" in result.stdout

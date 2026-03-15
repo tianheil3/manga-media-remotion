@@ -22,15 +22,6 @@ load_commands() {
   done <<< "$text"
 }
 
-check_command_prerequisites() {
-  local command="$1"
-
-  if [[ "$command" == npm\ *"--workspace"* ]] && [[ ! -d node_modules ]]; then
-    printf '%s\n' "Node workspace dependencies are missing; run npm install before strict validation." >&2
-    return 1
-  fi
-}
-
 main() {
   local command_text="${STRICT_VALIDATION_COMMANDS:-$DEFAULT_COMMANDS_TEXT}"
   local extra_text="${STRICT_VALIDATION_EXTRA_COMMANDS:-}"
@@ -49,7 +40,6 @@ main() {
   fi
 
   for command in "${commands[@]}"; do
-    check_command_prerequisites "$command" || return 1
     printf 'Running strict validation: %s\n' "$command"
     bash -lc "$command"
     status=$?

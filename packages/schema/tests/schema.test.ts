@@ -122,6 +122,7 @@ test("validates API response shapes used by the web review layer", () => {
     outputFile: "renders/preview-render-preview-001.mp4",
     createdAt: "2026-03-14T00:00:00.000Z",
     updatedAt: "2026-03-14T00:00:00.000Z",
+    errorMessage: null,
     statusPath: "/projects/demo-001/render-jobs/render-preview-001",
   });
 

@@ -5,6 +5,7 @@ import {
   buildPreviewState,
   buildProjectWorkflowSummary,
   pollRenderJobUntilSettled,
+  triggerRenderJobAndPoll,
 } from "../src/lib/workflow.ts";
 
 
@@ -68,6 +69,30 @@ test("builds preview state from scenes and render jobs", () => {
   assert.equal(preview.renderAction.enabled, false);
 });
 
+test("builds preview failure notices from persisted render errors", () => {
+  const preview = buildPreviewState({
+    counts: { frames: 8, voices: 4, scenes: 2 },
+    activeJob: {
+      id: "render-preview-002",
+      projectId: "demo-001",
+      kind: "preview",
+      status: "failed",
+      outputFile: "renders/preview-render-preview-002.mp4",
+      createdAt: "2026-03-14T00:00:00.000Z",
+      updatedAt: "2026-03-14T00:00:10.000Z",
+      errorMessage: "Missing script/scenes.json for render job.",
+      statusPath: "/projects/demo-001/render-jobs/render-preview-002",
+    },
+  });
+
+  assert.equal(preview.renderNotice.tone, "warning");
+  assert.equal(
+    preview.renderNotice.message,
+    "Preview render failed. Missing script/scenes.json for render job."
+  );
+  assert.equal(preview.renderAction.enabled, true);
+});
+
 
 test("polls render jobs until a terminal state is reached", async () => {
   const seenJobIds: string[] = [];
@@ -125,4 +150,90 @@ test("polls render jobs until a terminal state is reached", async () => {
     "render-preview-001",
     "render-preview-001",
   ]);
+});
+
+test("starts a render job and polls status updates until completion", async () => {
+  const updates: string[] = [];
+  const states = [
+    {
+      id: "render-preview-003",
+      projectId: "demo-001",
+      kind: "preview" as const,
+      status: "running" as const,
+      outputFile: "renders/preview-render-preview-003.mp4",
+      createdAt: "2026-03-14T00:00:00.000Z",
+      updatedAt: "2026-03-14T00:00:02.000Z",
+      statusPath: "/projects/demo-001/render-jobs/render-preview-003",
+    },
+    {
+      id: "render-preview-003",
+      projectId: "demo-001",
+      kind: "preview" as const,
+      status: "completed" as const,
+      outputFile: "renders/preview-render-preview-003.mp4",
+      createdAt: "2026-03-14T00:00:00.000Z",
+      updatedAt: "2026-03-14T00:00:04.000Z",
+      statusPath: "/projects/demo-001/render-jobs/render-preview-003",
+    },
+  ];
+
+  const settled = await triggerRenderJobAndPoll({
+    projectId: "demo-001",
+    kind: "preview",
+    createRenderJob: async (projectId, payload) => ({
+      id: "render-preview-003",
+      projectId,
+      kind: payload.kind,
+      status: "queued",
+      outputFile: "renders/preview-render-preview-003.mp4",
+      createdAt: "2026-03-14T00:00:00.000Z",
+      updatedAt: "2026-03-14T00:00:00.000Z",
+      statusPath: "/projects/demo-001/render-jobs/render-preview-003",
+    }),
+    getRenderJob: async () => states.shift()!,
+    wait: async () => {},
+    onUpdate: (job) => {
+      updates.push(job.status);
+    },
+  });
+
+  assert.equal(settled.status, "completed");
+  assert.deepEqual(updates, ["queued", "running", "completed"]);
+});
+
+test("starts a render job and surfaces terminal failures", async () => {
+  const updates: string[] = [];
+  const settled = await triggerRenderJobAndPoll({
+    projectId: "demo-001",
+    kind: "preview",
+    createRenderJob: async (projectId, payload) => ({
+      id: "render-preview-004",
+      projectId,
+      kind: payload.kind,
+      status: "queued",
+      outputFile: "renders/preview-render-preview-004.mp4",
+      createdAt: "2026-03-14T00:00:00.000Z",
+      updatedAt: "2026-03-14T00:00:00.000Z",
+      statusPath: "/projects/demo-001/render-jobs/render-preview-004",
+    }),
+    getRenderJob: async () => ({
+      id: "render-preview-004",
+      projectId: "demo-001",
+      kind: "preview",
+      status: "failed",
+      outputFile: "renders/preview-render-preview-004.mp4",
+      createdAt: "2026-03-14T00:00:00.000Z",
+      updatedAt: "2026-03-14T00:00:03.000Z",
+      errorMessage: "Missing script/scenes.json for render job.",
+      statusPath: "/projects/demo-001/render-jobs/render-preview-004",
+    }),
+    wait: async () => {},
+    onUpdate: (job) => {
+      updates.push(job.status);
+    },
+  });
+
+  assert.equal(settled.status, "failed");
+  assert.equal(settled.errorMessage, "Missing script/scenes.json for render job.");
+  assert.deepEqual(updates, ["queued", "failed"]);
 });

@@ -10,6 +10,6 @@
     "zod": "^4.1.11"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --import ../../tools/register-tsx.mjs --test tests/*.test.ts"
   }
 }

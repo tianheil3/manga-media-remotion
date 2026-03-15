@@ -71,6 +71,7 @@ export const renderJobSchema = z.object({
   outputFile: z.string().min(1),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  errorMessage: z.string().min(1).nullable().optional(),
   statusPath: z.string().min(1),
 });
 

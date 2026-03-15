@@ -1,7 +1,7 @@
 import React from "react";
 
 import { VideoComposition } from "../../../remotion/src/VideoComposition.tsx";
-import { buildPreviewState } from "../lib/workflow.ts";
+import { buildPreviewState, triggerRenderJobAndPoll } from "../lib/workflow.ts";
 
 const h = React.createElement;
 
@@ -50,6 +50,25 @@ export function PreviewPage({ project, scenes, activeJob }) {
   );
 }
 
-export async function triggerPreviewRender({ api, projectId, kind = "preview" }) {
-  return api.createRenderJob(projectId, { kind });
+export async function triggerPreviewRender({
+  api,
+  projectId,
+  kind = "preview",
+  onJobUpdate = () => {},
+  wait = defaultWait,
+}) {
+  return triggerRenderJobAndPoll({
+    projectId,
+    kind,
+    createRenderJob: (nextProjectId, payload) => api.createRenderJob(nextProjectId, payload),
+    getRenderJob: (nextProjectId, jobId) => api.getRenderJob(nextProjectId, jobId),
+    wait,
+    onUpdate: onJobUpdate,
+  });
+}
+
+function defaultWait() {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 1000);
+  });
 }

@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from apps.api.app.services.file_store import FileStore
+
 
 class RenderJob(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -16,6 +18,7 @@ class RenderJob(BaseModel):
     output_file: str = Field(alias="outputFile")
     created_at: str = Field(alias="createdAt")
     updated_at: str = Field(alias="updatedAt")
+    error_message: str | None = Field(default=None, alias="errorMessage")
 
 
 def create_job(project_dir: Path, *, kind: Literal["preview", "final"]) -> RenderJob:
@@ -32,6 +35,7 @@ def create_job(project_dir: Path, *, kind: Literal["preview", "final"]) -> Rende
         outputFile=f"renders/{kind}-{job_id}.mp4",
         createdAt=timestamp,
         updatedAt=timestamp,
+        errorMessage=None,
     )
     jobs.append(job)
     _save_jobs(project_dir, jobs)
@@ -39,17 +43,37 @@ def create_job(project_dir: Path, *, kind: Literal["preview", "final"]) -> Rende
 
 
 def get_job(project_dir: Path, job_id: str) -> RenderJob:
-    jobs = load_jobs(project_dir)
-    for index, job in enumerate(jobs):
-        if job.id != job_id:
-            continue
+    return _find_job(load_jobs(project_dir), job_id)
 
-        next_job = _advance_job(project_dir, job)
-        if next_job is not None:
-            jobs[index] = next_job
-            _save_jobs(project_dir, jobs)
+
+def run_job(project_dir: Path, job_id: str) -> RenderJob:
+    job = get_job(project_dir, job_id)
+    if job.status in {"completed", "failed"}:
         return job
-    raise ValueError(f"Unknown render job: {job_id}")
+
+    running_job = _update_job(
+        project_dir,
+        job_id,
+        status="running",
+        error_message=None,
+    )
+
+    try:
+        _render_job_output(project_dir, running_job)
+    except Exception as error:  # pragma: no cover - guarded by API tests
+        return _update_job(
+            project_dir,
+            job_id,
+            status="failed",
+            error_message=str(error),
+        )
+
+    return _update_job(
+        project_dir,
+        job_id,
+        status="completed",
+        error_message=None,
+    )
 
 
 def load_jobs(project_dir: Path) -> list[RenderJob]:
@@ -71,18 +95,77 @@ def _jobs_path(project_dir: Path) -> Path:
     return Path(project_dir) / "renders" / "jobs.json"
 
 
-def _advance_job(project_dir: Path, job: RenderJob) -> RenderJob | None:
-    # Advance on read so the file-backed MVP can expose progress without a worker.
-    if job.status == "queued":
-        return job.model_copy(update={"status": "running", "updated_at": _utc_timestamp()})
+def _update_job(project_dir: Path, job_id: str, **changes: object) -> RenderJob:
+    jobs = load_jobs(project_dir)
+    updated_job = None
+    updated_jobs = []
 
-    if job.status == "running":
-        output_path = Path(project_dir) / job.output_file
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_bytes(b"")
-        return job.model_copy(update={"status": "completed", "updated_at": _utc_timestamp()})
+    for job in jobs:
+        if job.id != job_id:
+            updated_jobs.append(job)
+            continue
 
-    return None
+        updated_job = job.model_copy(update={**changes, "updated_at": _utc_timestamp()})
+        updated_jobs.append(updated_job)
+
+    if updated_job is None:
+        raise ValueError(f"Unknown render job: {job_id}")
+
+    _save_jobs(project_dir, updated_jobs)
+    return updated_job
+
+
+def _find_job(jobs: list[RenderJob], job_id: str) -> RenderJob:
+    for job in jobs:
+        if job.id == job_id:
+            return job
+
+    raise ValueError(f"Unknown render job: {job_id}")
+
+
+def _render_job_output(project_dir: Path, job: RenderJob) -> None:
+    store = FileStore(project_dir)
+    try:
+        project = store.load_project()
+    except FileNotFoundError as error:
+        raise RuntimeError("Missing project.json for render job.") from error
+
+    try:
+        scenes = store.load_scenes()
+    except FileNotFoundError as error:
+        raise RuntimeError("Missing script/scenes.json for render job.") from error
+
+    if not scenes:
+        raise RuntimeError("No scenes available for render.")
+
+    output_path = Path(project_dir) / job.output_file
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    lines = [
+        "Manga Media Render Artifact",
+        f"job={job.id}",
+        f"project={project.id}",
+        f"title={project.title}",
+        f"kind={job.kind}",
+        f"scenes={len(scenes)}",
+    ]
+    for scene in scenes:
+        lines.append(
+            "|".join(
+                [
+                    scene.id,
+                    scene.type,
+                    scene.image,
+                    str(scene.duration_ms),
+                    scene.subtitle_text or "",
+                    scene.audio or "",
+                ]
+            )
+        )
+
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if output_path.stat().st_size == 0:
+        raise RuntimeError("Render output is empty.")
 
 
 def _utc_timestamp() -> str:
