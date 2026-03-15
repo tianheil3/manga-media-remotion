@@ -1,14 +1,11 @@
-import type { Scene } from "@manga/schema";
-
 import {
   buildSceneSequence,
   getCompositionDurationInFrames,
-  type SequencedScene,
 } from "./scene-sequence.ts";
 
 export function buildCompositionSpec(
-  scenes: unknown,
-  options: { fps: number }
+  scenes,
+  options
 ) {
   const sequencedScenes = buildSceneSequence(scenes, options);
 
@@ -19,7 +16,7 @@ export function buildCompositionSpec(
   };
 }
 
-function toRenderableScene(scene: SequencedScene) {
+function toRenderableScene(scene) {
   return {
     id: scene.id,
     template: scene.type,
@@ -34,6 +31,6 @@ function toRenderableScene(scene: SequencedScene) {
   };
 }
 
-function subtitleText(scene: Scene): string | undefined {
+function subtitleText(scene) {
   return scene.type === "silent" ? undefined : scene.subtitleText;
 }

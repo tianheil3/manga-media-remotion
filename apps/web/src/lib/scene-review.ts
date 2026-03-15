@@ -1,24 +1,6 @@
-import type { SceneReview, SceneUpdate } from "@manga/schema";
-
-export type SceneReviewDraft = {
-  id: string;
-  subtitleText: string | null | undefined;
-  durationMs: number;
-  stylePreset: SceneUpdate["stylePreset"];
-  audioActions: Array<{
-    key: "replace-audio" | "skip-recording";
-    label: string;
-    path: string;
-  }>;
-};
-
-export type SceneReviewValidationErrors = Partial<
-  Record<"subtitleText" | "durationMs" | "stylePreset", string>
->;
-
 const STYLE_PRESETS = new Set(["default", "fast", "dramatic", "calm"]);
 
-export function createSceneReviewDraft(scene: SceneReview): SceneReviewDraft {
+export function createSceneReviewDraft(scene) {
   return {
     id: scene.id,
     subtitleText: scene.subtitleText,
@@ -42,16 +24,16 @@ export function createSceneReviewDraft(scene: SceneReview): SceneReviewDraft {
 }
 
 export function updateSceneReviewDraft(
-  draft: SceneReviewDraft,
-  patch: Partial<Pick<SceneReviewDraft, "subtitleText" | "durationMs" | "stylePreset">>
-): SceneReviewDraft {
+  draft,
+  patch
+) {
   return {
     ...draft,
     ...patch,
   };
 }
 
-export function toSceneUpdatePayload(draft: SceneReviewDraft): SceneUpdate {
+export function toSceneUpdatePayload(draft) {
   const normalized = normalizeSceneReviewDraft(draft);
 
   return {
@@ -61,9 +43,9 @@ export function toSceneUpdatePayload(draft: SceneReviewDraft): SceneUpdate {
   };
 }
 
-export function validateSceneReviewDraft(draft: SceneReviewDraft): SceneReviewValidationErrors {
+export function validateSceneReviewDraft(draft) {
   const normalized = normalizeSceneReviewDraft(draft);
-  const errors: SceneReviewValidationErrors = {};
+  const errors = {};
 
   if (!Number.isInteger(normalized.durationMs) || normalized.durationMs <= 0) {
     errors.durationMs = "Duration must be a positive integer.";
@@ -76,11 +58,11 @@ export function validateSceneReviewDraft(draft: SceneReviewDraft): SceneReviewVa
   return errors;
 }
 
-export function hasSceneReviewValidationErrors(errors: SceneReviewValidationErrors): boolean {
+export function hasSceneReviewValidationErrors(errors) {
   return Object.keys(errors).length > 0;
 }
 
-function normalizeSceneReviewDraft(draft: SceneReviewDraft): SceneReviewDraft {
+function normalizeSceneReviewDraft(draft) {
   const subtitleText =
     typeof draft.subtitleText === "string" && draft.subtitleText.trim().length === 0
       ? null

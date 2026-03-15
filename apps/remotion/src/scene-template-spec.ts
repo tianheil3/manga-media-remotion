@@ -1,9 +1,5 @@
-import { sceneSchema, type Scene } from "@manga/schema";
-
-type SubtitlePosition = "bottom-center" | "hidden";
-
-export function buildSceneTemplateSpec(scene: unknown) {
-  const parsedScene = sceneSchema.parse(scene);
+export function buildSceneTemplateSpec(scene) {
+  const parsedScene = normalizeScene(scene);
 
   return {
     template: parsedScene.type,
@@ -16,7 +12,7 @@ export function buildSceneTemplateSpec(scene: unknown) {
   };
 }
 
-function resolvedMotion(scene: Scene): Scene["cameraMotion"] | "pan" | "zoom-in" {
+function resolvedMotion(scene) {
   if (scene.cameraMotion) {
     return scene.cameraMotion;
   }
@@ -29,6 +25,17 @@ function resolvedMotion(scene: Scene): Scene["cameraMotion"] | "pan" | "zoom-in"
   return "none";
 }
 
-function subtitlePosition(scene: Scene): SubtitlePosition {
+function subtitlePosition(scene) {
   return scene.type === "silent" ? "hidden" : "bottom-center";
+}
+
+function normalizeScene(scene) {
+  if (!scene || typeof scene !== "object") {
+    throw new TypeError("Scene must be an object.");
+  }
+  if (!scene.type) {
+    throw new TypeError("Scene type is required.");
+  }
+
+  return scene;
 }

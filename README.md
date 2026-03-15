@@ -22,6 +22,26 @@ Setup guides live under `docs/setup/`:
 - `docs/setup/strict-validation.md`
 - `docs/setup/symphony-land.md`
 
+## Runnable Web Review App
+
+`apps/web` now ships a real local review app instead of test-only entrypoints.
+
+Typical local flow:
+
+```bash
+uvicorn apps.api.app.main:app --reload
+MANGA_API_BASE_URL=http://127.0.0.1:8000 npm run dev --workspace apps/web -- --host 127.0.0.1 --port 4173
+```
+
+Required validation for the web app package:
+
+```bash
+npm test --workspace apps/web
+npm run build --workspace apps/web
+```
+
+The browser app also accepts `apiBaseUrl`, `projectId`, `frameId`, and `activeJobId` query parameters so you can deep-link into a review session.
+
 Run `python -m apps.cli.app.main doctor` after local setup changes to verify media tooling plus OCR, translation, and TTS prerequisites.
 
 ## Symphony Auto-Land

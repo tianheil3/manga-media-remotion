@@ -9,6 +9,7 @@ import {
   loadFrameReviewPage,
   startFrameReviewSave,
 } from "../src/pages/FrameReviewPage.tsx";
+import { findElement } from "./test-tree.ts";
 
 test("frame review page can load review data for a frame", async () => {
   const page = await loadFrameReviewPage({
@@ -795,13 +796,23 @@ test("frame review page renders input and save callbacks when actions are provid
     },
   });
 
-  const list = tree.props.children[5];
-  const item = list.props.children;
-  const textarea = item.props.children[1];
-  const orderInput = item.props.children[4];
-  const kindSelect = item.props.children[7];
-  const speakerInput = item.props.children[10];
-  const saveButton = tree.props.children[6];
+  const textarea = findElement(
+    tree,
+    (node) => node.type === "textarea" && node.props?.name === "textEdited-bubble-a"
+  );
+  const orderInput = findElement(
+    tree,
+    (node) => node.type === "input" && node.props?.name === "order-bubble-a"
+  );
+  const kindSelect = findElement(
+    tree,
+    (node) => node.type === "select" && node.props?.name === "kind-bubble-a"
+  );
+  const speakerInput = findElement(
+    tree,
+    (node) => node.type === "input" && node.props?.name === "speaker-bubble-a"
+  );
+  const saveButton = findElement(tree, (node) => node.type === "button");
 
   assert.equal(textarea.props.value, "draft line");
   assert.equal(textarea.props.defaultValue, undefined);
@@ -849,9 +860,10 @@ test("frame review page renders invalid bubble order values as an empty input", 
     },
   });
 
-  const list = tree.props.children[5];
-  const item = list.props.children;
-  const orderInput = item.props.children[4];
+  const orderInput = findElement(
+    tree,
+    (node) => node.type === "input" && node.props?.name === "order-bubble-a"
+  );
 
   assert.equal(orderInput.props.value, "");
 });

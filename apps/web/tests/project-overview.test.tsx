@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { App, AppView, createAppReviewActions, loadApp } from "../src/App.tsx";
+import { AppView, createAppReviewActions, loadApp } from "../src/App.tsx";
 import { FrameReviewPage } from "../src/pages/FrameReviewPage.tsx";
 import {
   loadPreviewPage,
@@ -13,6 +13,7 @@ import {
 } from "../src/pages/PreviewPage.tsx";
 import { ProjectOverviewPage } from "../src/pages/ProjectOverview.tsx";
 import { SceneReviewPage } from "../src/pages/SceneReviewPage.tsx";
+import { findElement } from "./test-tree.ts";
 
 const project = {
   id: "demo-001",
@@ -146,7 +147,7 @@ test("preview page loader fetches project scene data and active render jobs", as
 
 test("app shell renders overview and preview sections together", () => {
   const markup = renderToStaticMarkup(
-    React.createElement(App, {
+    React.createElement(AppView, {
       project,
       scenes,
       activeJob: null,
@@ -217,8 +218,14 @@ test("app shell forwards review action props to review pages", () => {
     sceneReviewActions,
   });
 
-  const frameReviewElement = tree.props.children[2];
-  const sceneReviewElement = tree.props.children[3];
+  const frameReviewElement = findElement(
+    tree,
+    (node) => node.type === FrameReviewPage
+  );
+  const sceneReviewElement = findElement(
+    tree,
+    (node) => node.type === SceneReviewPage
+  );
 
   assert.equal(frameReviewElement.type, FrameReviewPage);
   assert.equal(frameReviewElement.props.actions, frameReviewActions);
@@ -329,7 +336,7 @@ test("app loader surfaces frame review load errors without dropping the rest of 
     projectId: "demo-001",
   });
 
-  const markup = renderToStaticMarkup(React.createElement(App, loaded));
+  const markup = renderToStaticMarkup(React.createElement(AppView, loaded));
 
   assert.match(markup, /frame load failed/);
   assert.match(markup, /Scene review/);
@@ -366,7 +373,7 @@ test("app loader surfaces scene review load errors without dropping frame review
     projectId: "demo-001",
   });
 
-  const markup = renderToStaticMarkup(React.createElement(App, loaded));
+  const markup = renderToStaticMarkup(React.createElement(AppView, loaded));
 
   assert.match(markup, /scene load failed/);
   assert.match(markup, /Frame review/);

@@ -9,6 +9,8 @@
     "react-dom": "18.3.1"
   },
   "scripts": {
+    "dev": "node ./scripts/dev.mjs",
+    "build": "node ./scripts/build.mjs",
     "test": "node --import ../../tools/register-tsx.mjs --test tests/*.test.ts tests/*.test.tsx"
   }
 }

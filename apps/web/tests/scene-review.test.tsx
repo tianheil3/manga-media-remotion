@@ -9,6 +9,7 @@ import {
   startSceneReviewSave,
   updateSceneReviewDraft,
 } from "../src/pages/SceneReviewPage.tsx";
+import { findElement } from "./test-tree.ts";
 
 test("scene review page can load scenes and audio metadata", async () => {
   const page = await loadSceneReviewPage({
@@ -478,12 +479,19 @@ test("scene review page renders input and save callbacks when actions are provid
     },
   });
 
-  const list = tree.props.children[1];
-  const item = list.props.children;
-  const textarea = item.props.children[4];
-  const durationInput = item.props.children[6];
-  const styleSelect = item.props.children[8];
-  const saveButton = item.props.children[11];
+  const textarea = findElement(
+    tree,
+    (node) => node.type === "textarea" && node.props?.name === "subtitleText-scene-001"
+  );
+  const durationInput = findElement(
+    tree,
+    (node) => node.type === "input" && node.props?.name === "durationMs-scene-001"
+  );
+  const styleSelect = findElement(
+    tree,
+    (node) => node.type === "select" && node.props?.name === "stylePreset-scene-001"
+  );
+  const saveButton = findElement(tree, (node) => node.type === "button");
 
   assert.equal(textarea.props.value, "draft subtitle");
   assert.equal(textarea.props.defaultValue, undefined);
@@ -524,9 +532,10 @@ test("scene review page renders invalid duration values as an empty input", () =
     },
   });
 
-  const list = tree.props.children[1];
-  const item = list.props.children;
-  const durationInput = item.props.children[6];
+  const durationInput = findElement(
+    tree,
+    (node) => node.type === "input" && node.props?.name === "durationMs-scene-001"
+  );
 
   assert.equal(durationInput.props.value, "");
 });

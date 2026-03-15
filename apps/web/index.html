@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manga Review App</title>
+    <link rel="stylesheet" href="__STYLESHEET_HREF__" />
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@18.3.1",
+          "react-dom/client": "https://esm.sh/react-dom@18.3.1/client"
+        }
+      }
+    </script>
+    <script>
+      window.__MANGA_REVIEW_ENV__ = __MANGA_ENV_JSON__;
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="__ENTRY_SCRIPT__"></script>
+  </body>
+</html>

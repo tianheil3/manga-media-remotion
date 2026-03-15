@@ -1,0 +1,140 @@
+:root {
+  color-scheme: light;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  color: #132238;
+  background:
+    radial-gradient(circle at top, rgba(255, 222, 173, 0.65), transparent 38%),
+    linear-gradient(180deg, #f4efe4 0%, #efe5d2 45%, #e7dcc9 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.review-runtime {
+  width: min(1200px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 32px 0 64px;
+  display: grid;
+  gap: 24px;
+}
+
+.review-runtime-controls,
+.review-runtime-shell > .app-shell > section,
+.review-runtime-shell > .app-shell > header {
+  border: 1px solid rgba(19, 34, 56, 0.14);
+  border-radius: 20px;
+  background: rgba(255, 252, 247, 0.88);
+  box-shadow: 0 20px 40px rgba(80, 58, 31, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.review-runtime-controls {
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.review-runtime-controls h1 {
+  margin: 0 0 4px;
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  line-height: 1;
+}
+
+.review-runtime-controls form {
+  display: grid;
+  gap: 10px;
+}
+
+.review-runtime-controls label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.review-runtime-controls input,
+.review-runtime-shell textarea,
+.review-runtime-shell select,
+.review-runtime-shell input {
+  width: 100%;
+  border: 1px solid rgba(19, 34, 56, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 10px 12px;
+}
+
+.review-runtime button,
+.review-runtime-shell button {
+  border: none;
+  border-radius: 999px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #d86f2d 0%, #a44618 100%);
+  color: #fff7ef;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.review-runtime button:disabled,
+.review-runtime-shell button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.review-runtime-shell > .app-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.review-runtime-shell > .app-shell > header {
+  padding: 24px;
+}
+
+.review-runtime-shell > .app-shell > section {
+  padding: 20px 24px;
+}
+
+.review-runtime-shell ol,
+.review-runtime-shell ul {
+  display: grid;
+  gap: 12px;
+  padding-left: 20px;
+}
+
+.review-runtime-shell li {
+  padding: 12px 0;
+  border-top: 1px solid rgba(19, 34, 56, 0.1);
+}
+
+.review-runtime-shell li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+@media (max-width: 720px) {
+  .review-runtime {
+    width: min(100vw - 20px, 1200px);
+    padding: 20px 0 40px;
+  }
+
+  .review-runtime-controls,
+  .review-runtime-shell > .app-shell > section,
+  .review-runtime-shell > .app-shell > header {
+    border-radius: 16px;
+  }
+}

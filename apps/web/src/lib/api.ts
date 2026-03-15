@@ -9,27 +9,20 @@ import {
   sceneUpdateSchema,
 } from "@manga/schema";
 
-type FetchLike = typeof fetch;
-
-type ApiClientOptions = {
-  baseUrl?: string;
-  fetchImpl?: FetchLike;
-};
-
-export function createApiClient(options: ApiClientOptions = {}) {
+export function createApiClient(options = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const baseUrl = normalizeBaseUrl(options.baseUrl);
 
   return {
     listProjects: () =>
       requestJson(fetchImpl, `${baseUrl}/projects`, {}, projectSummarySchema.array()),
-    getProject: (projectId: string) =>
+    getProject: (projectId) =>
       requestJson(fetchImpl, `${baseUrl}/projects/${projectId}`, {}, projectDetailSchema),
-    getScenes: (projectId: string) =>
+    getScenes: (projectId) =>
       requestJson(fetchImpl, `${baseUrl}/projects/${projectId}/scenes`, {}, sceneReviewSchema.array()),
-    getFrames: (projectId: string) =>
+    getFrames: (projectId) =>
       requestJson(fetchImpl, `${baseUrl}/projects/${projectId}/frames`, {}, frameSchema.array()),
-    updateFrameReview: (projectId: string, frameId: string, payload: unknown) =>
+    updateFrameReview: (projectId, frameId, payload) =>
       requestJson(
         fetchImpl,
         `${baseUrl}/projects/${projectId}/frames/${frameId}/review`,
@@ -40,14 +33,14 @@ export function createApiClient(options: ApiClientOptions = {}) {
         },
         frameSchema
       ),
-    getSceneReview: (projectId: string) =>
+    getSceneReview: (projectId) =>
       requestJson(
         fetchImpl,
         `${baseUrl}/projects/${projectId}/scene-review`,
         {},
         sceneReviewSchema.array()
       ),
-    updateScene: (projectId: string, sceneId: string, payload: unknown) =>
+    updateScene: (projectId, sceneId, payload) =>
       requestJson(
         fetchImpl,
         `${baseUrl}/projects/${projectId}/scenes/${sceneId}`,
@@ -58,7 +51,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
         },
         sceneReviewSchema
       ),
-    createRenderJob: (projectId: string, payload: unknown) =>
+    createRenderJob: (projectId, payload) =>
       requestJson(
         fetchImpl,
         `${baseUrl}/projects/${projectId}/render-jobs`,
@@ -69,7 +62,7 @@ export function createApiClient(options: ApiClientOptions = {}) {
         },
         renderJobSchema
       ),
-    getRenderJob: (projectId: string, jobId: string) =>
+    getRenderJob: (projectId, jobId) =>
       requestJson(
         fetchImpl,
         `${baseUrl}/projects/${projectId}/render-jobs/${jobId}`,
@@ -79,12 +72,12 @@ export function createApiClient(options: ApiClientOptions = {}) {
   };
 }
 
-async function requestJson<T>(
-  fetchImpl: FetchLike,
-  url: string,
-  init: RequestInit,
-  schema: { parse(value: unknown): T }
-): Promise<T> {
+async function requestJson(
+  fetchImpl,
+  url,
+  init,
+  schema
+) {
   const response = await fetchImpl(url, init);
   if (!response.ok) {
     throw new Error(`${init.method ?? "GET"} ${url} failed with ${response.status}`);
@@ -93,7 +86,7 @@ async function requestJson<T>(
   return schema.parse(await response.json());
 }
 
-function normalizeBaseUrl(baseUrl: string | undefined): string {
+function normalizeBaseUrl(baseUrl) {
   if (!baseUrl) {
     return "";
   }
@@ -101,7 +94,7 @@ function normalizeBaseUrl(baseUrl: string | undefined): string {
   return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 }
 
-function jsonHeaders(): HeadersInit {
+function jsonHeaders() {
   return {
     "content-type": "application/json",
   };

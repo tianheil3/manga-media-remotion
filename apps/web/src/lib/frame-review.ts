@@ -1,19 +1,6 @@
-import type { Frame, FrameReviewUpdate, ReviewBubbleInput } from "@manga/schema";
-
-export type FrameReviewDraft = {
-  frameId: string;
-  bubbles: ReviewBubbleDraft[];
-};
-
-export type ReviewBubbleDraft = ReviewBubbleInput;
-export type ReviewBubbleValidationErrors = Partial<
-  Record<"textEdited" | "order" | "kind" | "speaker", string>
->;
-export type FrameReviewValidationErrors = Record<string, ReviewBubbleValidationErrors>;
-
 const REVIEW_KINDS = new Set(["dialogue", "narration", "sfx", "ignore"]);
 
-export function createFrameReviewDraft(frame: Frame): FrameReviewDraft {
+export function createFrameReviewDraft(frame) {
   const reviewedBySourceBubbleId = new Map(
     frame.reviewedBubbles.map((bubble) => [bubble.sourceBubbleId, bubble])
   );
@@ -30,13 +17,13 @@ export function createFrameReviewDraft(frame: Frame): FrameReviewDraft {
         };
       }
 
-      return {
-        sourceBubbleId: bubble.id,
-        textEdited: bubble.text,
-        order: bubble.order,
-        kind: "dialogue" as const,
-        speaker: undefined,
-      };
+        return {
+          sourceBubbleId: bubble.id,
+          textEdited: bubble.text,
+          order: bubble.order,
+          kind: "dialogue",
+          speaker: undefined,
+        };
     }),
     ...frame.reviewedBubbles
       .filter((bubble) => !frame.bubbles.some((entry) => entry.id === bubble.sourceBubbleId))
@@ -56,10 +43,10 @@ export function createFrameReviewDraft(frame: Frame): FrameReviewDraft {
 }
 
 export function updateReviewBubble(
-  draft: FrameReviewDraft,
-  sourceBubbleId: string,
-  patch: Partial<ReviewBubbleDraft>
-): FrameReviewDraft {
+  draft,
+  sourceBubbleId,
+  patch
+) {
   const bubbles = draft.bubbles.map((bubble) =>
     bubble.sourceBubbleId === sourceBubbleId ? { ...bubble, ...patch } : bubble
   );
@@ -71,10 +58,10 @@ export function updateReviewBubble(
 }
 
 export function reorderReviewDraft(
-  draft: FrameReviewDraft,
-  sourceBubbleId: string,
-  targetIndex: number
-): FrameReviewDraft {
+  draft,
+  sourceBubbleId,
+  targetIndex
+) {
   const currentIndex = draft.bubbles.findIndex(
     (bubble) => bubble.sourceBubbleId === sourceBubbleId
   );
@@ -97,7 +84,7 @@ export function reorderReviewDraft(
   };
 }
 
-export function toFrameReviewPayload(draft: FrameReviewDraft): FrameReviewUpdate {
+export function toFrameReviewPayload(draft) {
   return {
     reviewedBubbles: draft.bubbles
       .slice()
@@ -114,13 +101,13 @@ export function toFrameReviewPayload(draft: FrameReviewDraft): FrameReviewUpdate
   };
 }
 
-export function validateFrameReviewDraft(draft: FrameReviewDraft): FrameReviewValidationErrors {
-  const errors: FrameReviewValidationErrors = {};
-  const bubblesByOrder = new Map<number, string[]>();
+export function validateFrameReviewDraft(draft) {
+  const errors = {};
+  const bubblesByOrder = new Map();
 
   for (const bubble of draft.bubbles) {
     const normalized = normalizeReviewBubble(bubble);
-    const bubbleErrors: ReviewBubbleValidationErrors = {};
+    const bubbleErrors = {};
 
     if (normalized.kind !== "ignore" && normalized.textEdited.length === 0) {
       bubbleErrors.textEdited = "Edited text is required.";
@@ -159,11 +146,11 @@ export function validateFrameReviewDraft(draft: FrameReviewDraft): FrameReviewVa
   return errors;
 }
 
-export function hasFrameReviewValidationErrors(errors: FrameReviewValidationErrors): boolean {
+export function hasFrameReviewValidationErrors(errors) {
   return Object.keys(errors).length > 0;
 }
 
-function normalizeReviewBubble(bubble: ReviewBubbleDraft): ReviewBubbleDraft {
+function normalizeReviewBubble(bubble) {
   return {
     ...bubble,
     textEdited: bubble.textEdited.trim(),
@@ -171,7 +158,7 @@ function normalizeReviewBubble(bubble: ReviewBubbleDraft): ReviewBubbleDraft {
   };
 }
 
-function sortReviewBubbles(bubbles: ReviewBubbleDraft[]): ReviewBubbleDraft[] {
+function sortReviewBubbles(bubbles) {
   return bubbles.slice().sort((left, right) => {
     if (left.order !== right.order) {
       return left.order - right.order;

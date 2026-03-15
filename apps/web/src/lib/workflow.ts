@@ -1,5 +1,3 @@
-import type { ProjectDetail, RenderJob } from "@manga/schema";
-
 const WORKFLOW_STAGES = [
   { key: "images", label: "Images", actionLabel: "Import images" },
   { key: "ocr", label: "OCR", actionLabel: "Run OCR" },
@@ -7,11 +5,9 @@ const WORKFLOW_STAGES = [
   { key: "translation", label: "Translation", actionLabel: "Run translation" },
   { key: "voice", label: "Voice", actionLabel: "Generate voice" },
   { key: "scenes", label: "Scenes", actionLabel: "Build scenes" },
-] as const;
+] ;
 
-type WorkflowStageKey = (typeof WORKFLOW_STAGES)[number]["key"];
-
-export function buildProjectWorkflowSummary(project: ProjectDetail) {
+export function buildProjectWorkflowSummary(project) {
   const sections = WORKFLOW_STAGES.map((stage) => ({
     ...stage,
     done: project.progress[stage.key],
@@ -31,10 +27,7 @@ export function buildProjectWorkflowSummary(project: ProjectDetail) {
   };
 }
 
-export function buildPreviewState(input: {
-  counts: Pick<ProjectDetail["counts"], "scenes" | "voices" | "frames">;
-  activeJob?: RenderJob | null;
-}) {
+export function buildPreviewState(input) {
   const canMountPlayer = input.counts.scenes > 0;
   const activeJob = input.activeJob ?? null;
 
@@ -47,13 +40,7 @@ export function buildPreviewState(input: {
   };
 }
 
-export async function pollRenderJobUntilSettled(input: {
-  projectId: string;
-  jobId: string;
-  getRenderJob: (projectId: string, jobId: string) => Promise<RenderJob>;
-  wait: () => Promise<void>;
-  onUpdate?: (job: RenderJob) => void;
-}) {
+export async function pollRenderJobUntilSettled(input) {
   for (;;) {
     const job = await input.getRenderJob(input.projectId, input.jobId);
     input.onUpdate?.(job);
@@ -65,17 +52,7 @@ export async function pollRenderJobUntilSettled(input: {
   }
 }
 
-export async function triggerRenderJobAndPoll(input: {
-  projectId: string;
-  kind: RenderJob["kind"];
-  createRenderJob: (
-    projectId: string,
-    payload: { kind: RenderJob["kind"] }
-  ) => Promise<RenderJob>;
-  getRenderJob: (projectId: string, jobId: string) => Promise<RenderJob>;
-  wait: () => Promise<void>;
-  onUpdate?: (job: RenderJob) => void;
-}) {
+export async function triggerRenderJobAndPoll(input) {
   const createdJob = await input.createRenderJob(input.projectId, { kind: input.kind });
   input.onUpdate?.(createdJob);
   if (isTerminalStatus(createdJob.status)) {
@@ -92,9 +69,9 @@ export async function triggerRenderJobAndPoll(input: {
 }
 
 function stageCount(
-  key: WorkflowStageKey,
-  counts: Pick<ProjectDetail["counts"], "frames" | "voices" | "scenes">
-): number {
+  key,
+  counts
+) {
   if (key === "voice") {
     return counts.voices;
   }
@@ -108,9 +85,9 @@ function stageCount(
 }
 
 function previewNotice(
-  canMountPlayer: boolean,
-  activeJob: RenderJob | null
-): { tone: "info" | "success" | "warning"; message: string } {
+  canMountPlayer,
+  activeJob
+) {
   if (!canMountPlayer) {
     return {
       tone: "warning",
@@ -154,6 +131,6 @@ function previewNotice(
   };
 }
 
-function isTerminalStatus(status: RenderJob["status"]): boolean {
+function isTerminalStatus(status) {
   return status === "completed" || status === "failed";
 }
