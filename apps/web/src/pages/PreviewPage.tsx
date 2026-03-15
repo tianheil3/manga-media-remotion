@@ -19,11 +19,19 @@ export async function loadPreviewPage({ api, projectId, activeJobId }) {
   };
 }
 
-export function PreviewPage({ project, scenes, activeJob }) {
+export function PreviewPage({ project, scenes, activeJob, actions = {} }) {
   const preview = buildPreviewState({
     counts: project.counts,
     activeJob,
   });
+  const artifactUrl =
+    activeJob?.status === "completed" && activeJob.outputFile
+      ? activeJob.outputFile
+      : null;
+  const renderError =
+    activeJob?.status === "failed" && activeJob.errorMessage
+      ? activeJob.errorMessage
+      : null;
 
   return h(
     "section",
@@ -44,10 +52,45 @@ export function PreviewPage({ project, scenes, activeJob }) {
       {
         type: "button",
         disabled: !preview.renderAction.enabled,
+        onClick: actions.onTriggerRender ? () => actions.onTriggerRender() : undefined,
       },
       "Trigger preview render"
-    )
+    ),
+    artifactUrl
+      ? h(
+          "p",
+          { "data-render-artifact": "ready" },
+          h(
+            "a",
+            {
+              href: artifactUrl,
+              target: "_blank",
+              rel: "noreferrer",
+            },
+            "Open render artifact"
+          )
+        )
+      : null,
+    renderError ? h("p", { "data-render-error": "true" }, renderError) : null
   );
+}
+
+export function createPreviewPageActions({
+  api,
+  projectId,
+  onActiveJobChange,
+  wait = defaultWait,
+}) {
+  return {
+    async onTriggerRender() {
+      return triggerPreviewRender({
+        api,
+        projectId,
+        onJobUpdate: onActiveJobChange,
+        wait,
+      });
+    },
+  };
 }
 
 export async function triggerPreviewRender({

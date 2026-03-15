@@ -2,7 +2,7 @@ import React from "react";
 
 import { createFrameReviewDraft } from "./lib/frame-review.ts";
 import { createFrameReviewPageActions, FrameReviewPage } from "./pages/FrameReviewPage.tsx";
-import { PreviewPage } from "./pages/PreviewPage.tsx";
+import { createPreviewPageActions, PreviewPage } from "./pages/PreviewPage.tsx";
 import { ProjectOverviewPage } from "./pages/ProjectOverview.tsx";
 import { loadPreviewPage } from "./pages/PreviewPage.tsx";
 import {
@@ -51,14 +51,16 @@ export function App({
   projectId = null,
   project,
   scenes,
-  activeJob,
+  activeJob: initialActiveJob = null,
   frameReview: initialFrameReview = null,
   sceneReview: initialSceneReview = null,
   frameReviewActions = null,
   sceneReviewActions = null,
+  previewActions = null,
 }) {
   const [frameReview, setFrameReview] = React.useState(initialFrameReview);
   const [sceneReview, setSceneReview] = React.useState(initialSceneReview);
+  const [activeJob, setActiveJob] = React.useState(initialActiveJob);
   const resolvedProjectId = projectId ?? project?.id ?? null;
 
   React.useEffect(() => {
@@ -69,6 +71,10 @@ export function App({
     setSceneReview(initialSceneReview);
   }, [initialSceneReview]);
 
+  React.useEffect(() => {
+    setActiveJob(initialActiveJob);
+  }, [initialActiveJob]);
+
   const derivedActions =
     api && resolvedProjectId
       ? createAppReviewActions({
@@ -78,10 +84,12 @@ export function App({
           setFrameReviewState: setFrameReview,
           getSceneReviewState: () => sceneReview,
           setSceneReviewState: setSceneReview,
+          setActiveJob,
         })
       : {
           frameReviewActions: null,
           sceneReviewActions: null,
+          previewActions: null,
         };
 
   return h(AppView, {
@@ -92,6 +100,7 @@ export function App({
     sceneReview,
     frameReviewActions: frameReviewActions ?? derivedActions.frameReviewActions,
     sceneReviewActions: sceneReviewActions ?? derivedActions.sceneReviewActions,
+    previewActions: previewActions ?? derivedActions.previewActions,
   });
 }
 
@@ -103,6 +112,7 @@ export function AppView({
   sceneReview = null,
   frameReviewActions = null,
   sceneReviewActions = null,
+  previewActions = null,
 }) {
   return h(
     "main",
@@ -111,7 +121,7 @@ export function AppView({
     h(ProjectOverviewPage, { project }),
     frameReview ? h(FrameReviewPage, { ...frameReview, actions: frameReviewActions ?? undefined }) : null,
     sceneReview ? h(SceneReviewPage, { ...sceneReview, actions: sceneReviewActions ?? undefined }) : null,
-    h(PreviewPage, { project, scenes, activeJob })
+    h(PreviewPage, { project, scenes, activeJob, actions: previewActions ?? undefined })
   );
 }
 
@@ -122,6 +132,7 @@ export function createAppReviewActions({
   setFrameReviewState,
   getSceneReviewState,
   setSceneReviewState,
+  setActiveJob,
 }) {
   const frameReview = getFrameReviewState();
   const sceneReview = getSceneReviewState();
@@ -144,6 +155,13 @@ export function createAppReviewActions({
           projectId,
           getState: getSceneReviewState,
           onStateChange: setSceneReviewState,
+        })
+      : null,
+    previewActions: setActiveJob
+      ? createPreviewPageActions({
+          api,
+          projectId,
+          onActiveJobChange: setActiveJob,
         })
       : null,
   };

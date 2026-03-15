@@ -172,6 +172,9 @@ test("app shell forwards review action props to review pages", () => {
     onStylePresetChange() {},
     onSaveScene() {},
   };
+  const previewActions = {
+    onTriggerRender() {},
+  };
 
   const tree = AppView({
     project,
@@ -216,6 +219,7 @@ test("app shell forwards review action props to review pages", () => {
     },
     frameReviewActions,
     sceneReviewActions,
+    previewActions,
   });
 
   const frameReviewElement = findElement(
@@ -226,11 +230,14 @@ test("app shell forwards review action props to review pages", () => {
     tree,
     (node) => node.type === SceneReviewPage
   );
+  const previewElement = findElement(tree, (node) => node.type === PreviewPage);
 
   assert.equal(frameReviewElement.type, FrameReviewPage);
   assert.equal(frameReviewElement.props.actions, frameReviewActions);
   assert.equal(sceneReviewElement.type, SceneReviewPage);
   assert.equal(sceneReviewElement.props.actions, sceneReviewActions);
+  assert.equal(previewElement.type, PreviewPage);
+  assert.equal(previewElement.props.actions, previewActions);
 });
 
 test("app loader fetches frame review and scene review data for the shell", async () => {
@@ -526,6 +533,70 @@ test("app review actions write through setter callbacks for mounted state", asyn
   ]);
 });
 
+test("app preview actions trigger preview renders and keep active job state current", async () => {
+  const calls = [];
+  const updates = [];
+  let activeJob = null;
+  const queuedJob = {
+    id: "render-preview-002",
+    projectId: "demo-001",
+    kind: "preview",
+    status: "queued",
+    outputFile: "http://127.0.0.1:8000/projects/demo-001/media/renders/preview.mp4",
+    createdAt: "2026-03-15T00:00:00.000Z",
+    updatedAt: "2026-03-15T00:00:00.000Z",
+    statusPath: "http://127.0.0.1:8000/projects/demo-001/render-jobs/render-preview-002",
+  };
+  const polledJobs = [
+    {
+      ...queuedJob,
+      status: "running",
+      updatedAt: "2026-03-15T00:00:02.000Z",
+    },
+    {
+      ...queuedJob,
+      status: "completed",
+      updatedAt: "2026-03-15T00:00:04.000Z",
+    },
+  ];
+
+  const { previewActions } = createAppReviewActions({
+    api: {
+      createRenderJob: async (projectId, payload) => {
+        calls.push(["create", projectId, payload]);
+        return queuedJob;
+      },
+      getRenderJob: async (projectId, jobId) => {
+        calls.push(["poll", projectId, jobId]);
+        return polledJobs.shift();
+      },
+    },
+    projectId: "demo-001",
+    getFrameReviewState: () => null,
+    setFrameReviewState() {},
+    getSceneReviewState: () => null,
+    setSceneReviewState() {},
+    getActiveJob: () => activeJob,
+    setActiveJob: (nextJob) => {
+      activeJob = nextJob;
+      updates.push(nextJob.status);
+    },
+  });
+
+  assert.equal(typeof previewActions?.onTriggerRender, "function");
+
+  const settledJob = await previewActions.onTriggerRender();
+
+  assert.equal(settledJob.status, "completed");
+  assert.equal(activeJob?.status, "completed");
+  assert.deepEqual(updates, ["queued", "running", "completed"]);
+  assert.deepEqual(calls, [
+    ["create", "demo-001", { kind: "preview" }],
+    ["poll", "demo-001", "render-preview-002"],
+    ["poll", "demo-001", "render-preview-002"],
+  ]);
+});
+
 test("app loader ignores stale frame ids instead of throwing", async () => {
   const loaded = await loadApp({
     api: {
@@ -641,4 +712,53 @@ test("preview page can trigger preview renders and poll job updates", async () =
   ]);
   assert.deepEqual(updates, ["queued", "running", "completed"]);
   assert.equal(job.status, "completed");
+});
+
+test("preview page renders a completed artifact link and trigger callback when actions are provided", async () => {
+  const calls = [];
+  const completedJob = {
+    id: "render-preview-003",
+    projectId: "demo-001",
+    kind: "preview",
+    status: "completed",
+    outputFile: "http://127.0.0.1:8000/projects/demo-001/media/renders/preview.mp4",
+    createdAt: "2026-03-15T00:00:00.000Z",
+    updatedAt: "2026-03-15T00:00:04.000Z",
+    statusPath: "http://127.0.0.1:8000/projects/demo-001/render-jobs/render-preview-003",
+  };
+
+  const tree = PreviewPage({
+    project,
+    scenes,
+    activeJob: completedJob,
+    actions: {
+      onTriggerRender: async () => {
+        calls.push("triggered");
+      },
+    },
+  });
+  const button = findElement(
+    tree,
+    (node) => node.type === "button" && node.props.children === "Trigger preview render"
+  );
+
+  await button.props.onClick();
+
+  const markup = renderToStaticMarkup(
+    React.createElement(PreviewPage, {
+      project,
+      scenes,
+      activeJob: completedJob,
+      actions: {
+        onTriggerRender() {},
+      },
+    })
+  );
+
+  assert.deepEqual(calls, ["triggered"]);
+  assert.match(markup, /Open render artifact/);
+  assert.match(
+    markup,
+    /http:\/\/127\.0\.0\.1:8000\/projects\/demo-001\/media\/renders\/preview\.mp4/
+  );
 });
