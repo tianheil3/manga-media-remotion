@@ -64,3 +64,38 @@ def test_symphony_docs_cover_backlog_promoter_setup() -> None:
     assert "LINEAR_API_KEY" in promoter_setup
     assert "python scripts/backlog-promoter.py --once --dry-run" in promoter_setup
     assert "python scripts/backlog-promoter.py --poll --interval-seconds 30" in promoter_setup
+
+
+def test_operator_runbook_and_release_checklist_cover_the_mvp_handoff_path() -> None:
+    root = Path(__file__).resolve().parents[2]
+
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    local_dev = (root / "docs" / "setup" / "local-development.md").read_text(encoding="utf-8")
+    runbook = (root / "docs" / "setup" / "operator-runbook.md").read_text(encoding="utf-8")
+    checklist = (root / "docs" / "verification" / "mvp-checklist.md").read_text(encoding="utf-8")
+
+    assert "docs/setup/operator-runbook.md" in readme
+    assert "docs/setup/operator-runbook.md" in local_dev
+    assert "docs/verification/mvp-checklist.md" in readme
+    assert "docs/verification/mvp-checklist.md" in local_dev
+
+    assert "python -m apps.cli.app.main new" in runbook
+    assert "python -m apps.cli.app.main import-images" in runbook
+    assert "python -m apps.cli.app.main ocr" in runbook
+    assert "python -m apps.cli.app.main review" in runbook
+    assert "python -m apps.cli.app.main translate" in runbook
+    assert "python -m apps.cli.app.main voice" in runbook
+    assert "python -m apps.cli.app.main build-scenes" in runbook
+    assert "/render-jobs" in runbook
+    assert "workspace/<project-id>/" in runbook
+    assert "OCR triage" in runbook
+    assert "Translation triage" in runbook
+    assert "TTS triage" in runbook
+    assert "Media generation triage" in runbook
+    assert "Render job triage" in runbook
+
+    assert "Release Readiness Checklist" in checklist
+    assert "docs/setup/operator-runbook.md" in checklist
+    assert "project creation" in checklist
+    assert "final render" in checklist
+    assert "docs/verification/mvp-real-run-2026-03-15.md" in checklist

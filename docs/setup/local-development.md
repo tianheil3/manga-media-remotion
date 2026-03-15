@@ -65,6 +65,14 @@ Example direct link:
 http://127.0.0.1:4173/?apiBaseUrl=http%3A%2F%2F127.0.0.1%3A8000&projectId=demo-001
 ```
 
+## Operator References
+
+Use these docs together when you are running the MVP for handoff instead of just setting up local development:
+
+- `docs/setup/operator-runbook.md`
+- `docs/verification/mvp-checklist.md`
+- `docs/verification/mvp-real-run-2026-03-15.md`
+
 ## Startup Flows
 
 ### CLI

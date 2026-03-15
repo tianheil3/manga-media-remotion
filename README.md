@@ -15,6 +15,7 @@ This repository is a local-first manga video workflow MVP.
 Setup guides live under `docs/setup/`:
 
 - `docs/setup/local-development.md`
+- `docs/setup/operator-runbook.md`
 - `docs/setup/mangaocr.md`
 - `docs/setup/moyin-env.md`
 - `docs/setup/translation-env.md`
@@ -60,6 +61,11 @@ The browser app also accepts `apiBaseUrl`, `projectId`, `frameId`, and `activeJo
 Use `MANGA_WORKSPACE_ROOT` as an absolute path when the API will trigger render jobs, and set `MANGA_API_BASE_URL` or `VITE_API_BASE_URL` for the web app when you are not relying on the query parameter override.
 
 The latest checked-in real workflow run record is `docs/verification/mvp-real-run-2026-03-15.md`.
+
+Operator handoff references:
+
+- `docs/setup/operator-runbook.md`
+- `docs/verification/mvp-checklist.md`
 
 ## Sample Project Smoke
 
