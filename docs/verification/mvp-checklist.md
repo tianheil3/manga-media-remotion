@@ -11,4 +11,8 @@ Use this checklist to manually verify the current MVP flow:
 7. preview the generated scene timeline
 8. render a preview or final output
 
-Record the exact commands, generated files, and any missing prerequisites when running this checklist manually.
+Latest verified run record:
+
+- `2026-03-15`: `docs/verification/mvp-real-run-2026-03-15.md`
+
+Record the exact commands, generated files, and any missing prerequisites when running this checklist manually. Capture both hard blockers and any manual recovery steps needed to finish the same project run.

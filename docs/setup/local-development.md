@@ -97,7 +97,7 @@ npm run build --workspace apps/web
 Start the API from the repository root:
 
 ```bash
-uvicorn apps.api.app.main:app --reload
+MANGA_WORKSPACE_ROOT="$(pwd)/workspace" uvicorn apps.api.app.main:app --reload
 ```
 
 Then start the web app in a second terminal:
@@ -107,6 +107,8 @@ MANGA_API_BASE_URL=http://127.0.0.1:8000 npm run dev --workspace apps/web -- --h
 ```
 
 Open `http://127.0.0.1:4173/` in a browser and load a project by ID. The running app renders the project overview, frame review, scene review, and preview sections through the existing review shell.
+
+Use an absolute `MANGA_WORKSPACE_ROOT` when you plan to trigger render jobs through the API. A relative `workspace` root can cause Remotion render jobs to fail to resolve `project.json`.
 
 ### API Base URL Configuration
 
