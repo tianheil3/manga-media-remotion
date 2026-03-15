@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -132,11 +131,8 @@ def test_post_render_job_starts_real_renders_and_persists_non_empty_output_files
         assert output_path.exists()
         assert output_path.stat().st_size > 0
 
-        artifact = json.loads(output_path.read_text(encoding="utf-8"))
-        assert artifact["artifactType"] == "manga-remotion-render-v1"
-        assert artifact["kind"] == kind
-        assert artifact["project"]["id"] == "demo-001"
-        assert artifact["sceneCount"] == 1
+        header = output_path.read_bytes()[4:8]
+        assert header == b"ftyp"
 
 
 def test_failed_render_jobs_persist_error_messages(tmp_path: Path) -> None:

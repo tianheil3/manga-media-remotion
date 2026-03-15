@@ -48,7 +48,7 @@ function createProjectFixture() {
   return projectDir;
 }
 
-test("renderProject writes a deterministic render artifact from project scene data", async () => {
+test("renderProject writes a real MP4 while returning render metadata", async () => {
   const projectDir = createProjectFixture();
 
   const result = await renderProject({
@@ -62,13 +62,15 @@ test("renderProject writes a deterministic render artifact from project scene da
     join(projectDir, "renders", "preview-render-preview-001.mp4")
   );
 
-  const artifact = JSON.parse(readFileSync(result.outputPath, "utf8"));
-  assert.equal(artifact.artifactType, "manga-remotion-render-v1");
-  assert.equal(artifact.kind, "preview");
-  assert.equal(artifact.project.id, "demo-001");
-  assert.equal(artifact.sceneCount, 1);
-  assert.equal(artifact.composition.durationInFrames, 30);
-  assert.match(artifact.markup, /data-scene-type="narration"/);
+  const outputBytes = readFileSync(result.outputPath);
+  assert.equal(outputBytes.toString("ascii", 4, 8), "ftyp");
+
+  assert.equal(result.artifact.artifactType, "manga-remotion-render-v1");
+  assert.equal(result.artifact.kind, "preview");
+  assert.equal(result.artifact.project.id, "demo-001");
+  assert.equal(result.artifact.sceneCount, 1);
+  assert.equal(result.artifact.composition.durationInFrames, 30);
+  assert.match(result.artifact.markup, /data-scene-type="narration"/);
 });
 
 test("runCli prints renderer help without requiring render arguments", async () => {
