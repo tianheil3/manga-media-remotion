@@ -19,16 +19,25 @@ def test_setup_docs_cover_local_development_requirements() -> None:
     assert "Pillow" in local_dev
     assert "apps/cli" in local_dev
     assert "apps/api" in local_dev
+    assert "python -m apps.cli.app.main --help" in local_dev
+    assert "uvicorn apps.api.app.main:app --reload" in local_dev
+    assert "npm run dev --workspace apps/web" in local_dev
     assert "apps/remotion" in local_dev
+    assert "npm run render --workspace apps/remotion -- --help" in local_dev
+    assert "npm test --workspace apps/remotion" in local_dev
     assert "doctor" in readme
     assert "doctor" in local_dev
     assert "MANGA_WORKSPACE_ROOT" in readme
     assert "MANGA_WORKSPACE_ROOT" in local_dev
+    assert "MANGA_API_BASE_URL" in readme
+    assert "MANGA_API_BASE_URL" in local_dev
+    assert "VITE_API_BASE_URL" in local_dev
     assert "bash scripts/smoke-sample-project.sh" in readme
     assert "bash scripts/smoke-sample-project.sh" in local_dev
     assert "tests/fixtures/workspace/demo-001" in readme
     assert "tests/fixtures/workspace/demo-001" in local_dev
     assert "docs/verification/mvp-real-run-2026-03-15.md" in readme
+    assert "npm install" in local_dev
     assert "MOYIN_TTS_BASE_URL" in moyin_env
     assert "MOYIN_TTS_API_KEY" in moyin_env
     assert "doctor" in moyin_env
@@ -40,6 +49,8 @@ def test_setup_docs_cover_local_development_requirements() -> None:
     assert "manga_ocr" in mangaocr
     assert "pip install" in mangaocr
     assert "doctor" in mangaocr
+    assert "reserved for the Remotion renderer" not in local_dev
+    assert "tracked separately" not in local_dev
 
 
 def test_symphony_docs_cover_backlog_promoter_setup() -> None:

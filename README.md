@@ -22,27 +22,42 @@ Setup guides live under `docs/setup/`:
 - `docs/setup/strict-validation.md`
 - `docs/setup/symphony-land.md`
 
-## Runnable Web Review App
+## Runnable Monorepo Quickstart
 
-`apps/web` now ships a real local review app instead of test-only entrypoints.
-
-Typical local flow:
+Install the checked-in Node workspace dependencies from the repository root:
 
 ```bash
-MANGA_WORKSPACE_ROOT="$(pwd)/workspace" uvicorn apps.api.app.main:app --reload
-MANGA_API_BASE_URL=http://127.0.0.1:8000 npm run dev --workspace apps/web -- --host 127.0.0.1 --port 4173
+npm install
 ```
 
-Required validation for the web app package:
+Create or activate your Python environment, install the runtime packages described in `docs/setup/local-development.md`, then verify the local toolchain and provider setup:
+
+```bash
+python -m apps.cli.app.main doctor
+```
+
+Startup commands for the runnable packages:
+
+```bash
+python -m apps.cli.app.main --help
+MANGA_WORKSPACE_ROOT="$(pwd)/workspace" uvicorn apps.api.app.main:app --reload
+MANGA_API_BASE_URL=http://127.0.0.1:8000 npm run dev --workspace apps/web -- --host 127.0.0.1 --port 4173
+npm run render --workspace apps/remotion -- --help
+```
+
+`apps/web` is a real local review app, and `apps/remotion` is the renderer CLI that the API uses for preview and final jobs.
+
+Package-level validation:
 
 ```bash
 npm test --workspace apps/web
 npm run build --workspace apps/web
+npm test --workspace apps/remotion
 ```
 
 The browser app also accepts `apiBaseUrl`, `projectId`, `frameId`, and `activeJobId` query parameters so you can deep-link into a review session.
 
-Run `python -m apps.cli.app.main doctor` after local setup changes to verify media tooling plus OCR, translation, and TTS prerequisites.
+Use `MANGA_WORKSPACE_ROOT` as an absolute path when the API will trigger render jobs, and set `MANGA_API_BASE_URL` or `VITE_API_BASE_URL` for the web app when you are not relying on the query parameter override.
 
 The latest checked-in real workflow run record is `docs/verification/mvp-real-run-2026-03-15.md`.
 
