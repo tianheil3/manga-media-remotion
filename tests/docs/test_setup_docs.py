@@ -23,3 +23,16 @@ def test_setup_docs_cover_local_development_requirements() -> None:
     assert "DEEPL_BASE_URL" in translation_env
     assert "manga-ocr" in mangaocr
     assert "pip install" in mangaocr
+
+
+def test_symphony_docs_cover_backlog_promoter_setup() -> None:
+    root = Path(__file__).resolve().parents[2]
+
+    symphony_setup = (root / "docs" / "setup" / "symphony.md").read_text(encoding="utf-8")
+    promoter_setup = (root / "docs" / "setup" / "backlog-promoter.md").read_text(encoding="utf-8")
+
+    assert "docs/setup/backlog-promoter.md" in symphony_setup
+    assert "config/backlog-promoter.json" in promoter_setup
+    assert "LINEAR_API_KEY" in promoter_setup
+    assert "python scripts/backlog-promoter.py --once --dry-run" in promoter_setup
+    assert "python scripts/backlog-promoter.py --poll --interval-seconds 30" in promoter_setup

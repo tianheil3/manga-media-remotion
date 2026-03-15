@@ -5,7 +5,9 @@ This repository keeps the Symphony configuration in the repository root:
 - `WORKFLOW.md`
 - `scripts/verify-strict.sh`
 - `scripts/land.sh`
+- `scripts/backlog-promoter.py`
 - `docs/setup/strict-validation.md`
+- `docs/setup/backlog-promoter.md`
 - `docs/setup/symphony-land.md`
 - `docs/verification/symphony-auto-land.md`
 
@@ -48,6 +50,7 @@ npm install
 Use these docs together:
 
 - `docs/setup/strict-validation.md`
+- `docs/setup/backlog-promoter.md`
 - `docs/setup/symphony-land.md`
 - `docs/verification/symphony-auto-land.md`
 
