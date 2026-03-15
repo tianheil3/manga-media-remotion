@@ -1,6 +1,8 @@
 import React from "react";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { projectSchema, sceneSchema, type Project, type Scene } from "@manga/schema";
@@ -43,24 +45,41 @@ export type RenderProjectResult = {
   artifact: RenderArtifact;
 };
 
+type VideoRenderPayload = {
+  fps: number;
+  kind: RenderKind;
+  outputPath: string;
+  project: Project;
+  projectDir: string;
+  scenes: Scene[];
+};
+
 export async function renderProject(
   input: RenderProjectInput
 ): Promise<RenderProjectResult> {
+  const fps = input.fps ?? DEFAULT_RENDER_FPS;
   const loaded = await loadRenderInput(input);
   const artifact = buildRenderArtifact({
     project: loaded.project,
     scenes: loaded.scenes,
     kind: input.kind,
-    fps: input.fps ?? DEFAULT_RENDER_FPS,
+    fps,
     generatedAt: input.generatedAt,
   });
   const outputPath = join(input.projectDir, input.outputFile);
-  const payload = JSON.stringify(artifact, null, 2) + "\n";
 
   await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, payload, "utf8");
+  await renderVideo({
+    fps,
+    kind: input.kind,
+    outputPath,
+    project: loaded.project,
+    projectDir: input.projectDir,
+    scenes: loaded.scenes,
+  });
 
-  if (payload.trim().length === 0) {
+  const outputStats = await stat(outputPath);
+  if (outputStats.size === 0) {
     throw new Error("Render output is empty.");
   }
 
@@ -126,6 +145,36 @@ export function buildRenderArtifact(options: {
   };
 }
 
+async function renderVideo(payload: VideoRenderPayload): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const stderrChunks: string[] = [];
+    const stdoutChunks: string[] = [];
+    const child = spawn(process.env.PYTHON ?? "python", [RENDER_VIDEO_SCRIPT], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    child.stdout.on("data", (chunk) => {
+      stdoutChunks.push(String(chunk));
+    });
+    child.stderr.on("data", (chunk) => {
+      stderrChunks.push(String(chunk));
+    });
+    child.on("error", (error) => {
+      reject(new Error(`Failed to start video renderer: ${error.message}`));
+    });
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      reject(new Error(extractRendererError(stderrChunks.join(""), stdoutChunks.join(""))));
+    });
+
+    child.stdin.end(JSON.stringify(payload));
+  });
+}
+
 async function readJsonFile(path: string, missingMessage: string): Promise<unknown> {
   try {
     return JSON.parse(await readFile(path, "utf8"));
@@ -137,3 +186,16 @@ async function readJsonFile(path: string, missingMessage: string): Promise<unkno
     throw error;
   }
 }
+
+function extractRendererError(stderr: string, stdout: string): string {
+  for (const line of [...stderr.split(/\r?\n/), ...stdout.split(/\r?\n/)].reverse()) {
+    const trimmed = line.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+
+  return "Renderer command failed.";
+}
+
+const RENDER_VIDEO_SCRIPT = fileURLToPath(new URL("../scripts/render_video.py", import.meta.url));
