@@ -308,3 +308,71 @@ def test_run_polling_loop_sleeps_between_runs() -> None:
 
     assert runs == ["run", "run"]
     assert sleeps == [7]
+
+
+def test_run_cycle_promotes_only_eligible_backlog_targets(tmp_path: Path) -> None:
+    module = load_module()
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "projectSlug": "demo-project",
+                "teamKey": "TIA",
+                "sourceState": "Backlog",
+                "targetState": "Todo",
+                "promotions": [
+                    {"issue": "TIA-400", "dependsOn": ["TIA-1"]},
+                    {"issue": "TIA-401", "dependsOn": ["TIA-400"]},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.updates: list[tuple[str, str]] = []
+
+        def resolve_project(self, project_slug: str) -> dict[str, str]:
+            assert project_slug == "demo-project"
+            return {"id": "project-1", "name": "Demo"}
+
+        def resolve_team_states(self, team_key: str) -> dict[str, str]:
+            assert team_key == "TIA"
+            return {
+                "Backlog": "state-backlog",
+                "Todo": "state-todo",
+                "Done": "state-done",
+            }
+
+        def list_project_issues(self, project_id: str) -> list[dict[str, object]]:
+            assert project_id == "project-1"
+            return [
+                {"id": "issue-1", "identifier": "TIA-1", "state": {"name": "Done"}},
+                {"id": "issue-400", "identifier": "TIA-400", "state": {"name": "Backlog"}},
+                {"id": "issue-401", "identifier": "TIA-401", "state": {"name": "Backlog"}},
+            ]
+
+        def update_issue_state(self, issue_id: str, state_id: str) -> None:
+            self.updates.append((issue_id, state_id))
+
+    client = FakeClient()
+
+    result = module.run_cycle(config_path=config_path, dry_run=False, client=client)
+
+    assert result["promoted"] == ["TIA-400"]
+    assert result["errors"] == {}
+    assert client.updates == [("issue-400", "state-todo")]
+
+
+def test_project_slug_matching_accepts_combined_name_and_slug_id() -> None:
+    module = load_module()
+
+    assert module.project_matches_slug(
+        {
+            "name": "manga-media-remotion",
+            "slugId": "e37e12494859",
+        },
+        "manga-media-remotion-e37e12494859",
+    )

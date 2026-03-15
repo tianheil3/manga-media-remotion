@@ -26,6 +26,16 @@ def load_config(config_path: Path) -> dict[str, object]:
     return payload
 
 
+def project_matches_slug(project: dict[str, Any], configured_slug: str) -> bool:
+    slug_id = project.get("slugId")
+    name = project.get("name")
+    if not isinstance(slug_id, str) or not isinstance(name, str):
+        return False
+
+    normalized_name = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return configured_slug == slug_id or configured_slug == f"{normalized_name}-{slug_id}"
+
+
 def validate_config(payload: dict[str, object]) -> None:
     promotions = payload.get("promotions")
     if not isinstance(promotions, list):
@@ -152,7 +162,7 @@ class LinearClient:
     def resolve_project(self, project_slug: str) -> dict[str, Any]:
         data = self.query(
             """
-            query($projectSlug: String!) {
+            query {
               projects {
                 nodes {
                   id
@@ -164,14 +174,14 @@ class LinearClient:
             """
         )
         for project in data["projects"]["nodes"]:
-            if project["slugId"] == project_slug:
+            if project_matches_slug(project, project_slug):
                 return project
         raise ValueError(f"Unknown Linear project slug: {project_slug}")
 
     def resolve_team_states(self, team_key: str) -> dict[str, str]:
         data = self.query(
             """
-            query($teamKey: String!) {
+            query {
               teams {
                 nodes {
                   key
@@ -198,6 +208,7 @@ class LinearClient:
               project(id: $projectId) {
                 issues {
                   nodes {
+                    id
                     identifier
                     state {
                       name
@@ -210,6 +221,23 @@ class LinearClient:
             {"projectId": project_id},
         )
         return data["project"]["issues"]["nodes"]
+
+    def update_issue_state(self, issue_id: str, state_id: str) -> None:
+        self.query(
+            """
+            mutation($id: String!, $stateId: String!) {
+              issueUpdate(
+                id: $id
+                input: {
+                  stateId: $stateId
+                }
+              ) {
+                success
+              }
+            }
+            """,
+            {"id": issue_id, "stateId": state_id},
+        )
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -232,9 +260,50 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def run_cycle(*, config_path: Path, dry_run: bool) -> dict[str, object]:
-    load_config(config_path)
-    return {"promoted": [], "errors": {}}
+def run_cycle(
+    *,
+    config_path: Path,
+    dry_run: bool,
+    client: LinearClient | None = None,
+) -> dict[str, object]:
+    config = load_config(config_path)
+    linear_client = client or LinearClient()
+
+    project_slug = config["projectSlug"]
+    team_key = config["teamKey"]
+    source_state = config["sourceState"]
+    target_state = config["targetState"]
+    assert isinstance(project_slug, str)
+    assert isinstance(team_key, str)
+    assert isinstance(source_state, str)
+    assert isinstance(target_state, str)
+
+    project = linear_client.resolve_project(project_slug)
+    state_ids = linear_client.resolve_team_states(team_key)
+    if source_state not in state_ids:
+        raise ValueError(f"Unknown source state: {source_state}")
+    if target_state not in state_ids:
+        raise ValueError(f"Unknown target state: {target_state}")
+
+    issues = linear_client.list_project_issues(project["id"])
+    issue_states = {
+        issue["identifier"]: issue["state"]["name"]
+        for issue in issues
+    }
+    issue_ids = {
+        issue["identifier"]: issue["id"]
+        for issue in issues
+    }
+
+    return apply_promotions(
+        config,
+        issue_states,
+        promote_issue=lambda issue, _state_name: linear_client.update_issue_state(
+            issue_ids[issue],
+            state_ids[target_state],
+        ),
+        dry_run=dry_run,
+    )
 
 
 def run_polling_loop(
