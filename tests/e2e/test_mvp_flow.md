@@ -21,3 +21,5 @@
 ## Notes
 
 If any prerequisite is unavailable in the current environment, document the blocker in the verification log and treat the run as a documented skip rather than a silent failure.
+
+For a committed, repeatable regression check that does not require OCR or live TTS providers, use `bash scripts/smoke-sample-project.sh` against `tests/fixtures/workspace/demo-001/`.

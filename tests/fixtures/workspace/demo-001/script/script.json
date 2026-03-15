@@ -1,0 +1,13 @@
+[
+  {
+    "id": "script-bubble-001",
+    "frameId": "frame-001",
+    "sourceBubbleId": "bubble-001",
+    "sourceText": "サンプルです。",
+    "translatedText": "This is a sample line.",
+    "voiceText": "This is a sample line.",
+    "subtitleText": "This is a sample line.",
+    "kind": "dialogue",
+    "speaker": "Hero"
+  }
+]

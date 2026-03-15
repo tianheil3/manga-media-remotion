@@ -1,0 +1,13 @@
+[
+  {
+    "id": "voice-script-bubble-001",
+    "frameId": "frame-001",
+    "text": "This is a sample line.",
+    "mode": "tts",
+    "role": "character",
+    "speaker": "Hero",
+    "voicePreset": "character-default",
+    "audioFile": "audio/characters/script-bubble-001.wav",
+    "durationMs": 700
+  }
+]

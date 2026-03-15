@@ -4,6 +4,7 @@ set -uo pipefail
 
 readonly DEFAULT_COMMANDS_TEXT=$(cat <<'EOF'
 python -m pytest apps/api/tests apps/cli/tests tests/bootstrap tests/docs tests/scripts -v
+bash scripts/smoke-sample-project.sh
 npm test --workspace packages/schema
 npm test --workspace apps/web
 npm test --workspace apps/remotion

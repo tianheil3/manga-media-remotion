@@ -1,0 +1,15 @@
+[
+  {
+    "id": "scene-001",
+    "type": "dialogue",
+    "image": "images/001.png",
+    "subtitleText": "This is a sample line.",
+    "voiceId": "voice-script-bubble-001",
+    "audio": "audio/characters/script-bubble-001.wav",
+    "durationMs": 900,
+    "speaker": "Hero",
+    "stylePreset": "default",
+    "cameraMotion": "none",
+    "transition": "cut"
+  }
+]

@@ -35,6 +35,12 @@ Thumbs.db
 
 # Project runtime outputs
 workspace/
+!tests/fixtures/workspace/
+!tests/fixtures/workspace/**
 renders/
+!tests/fixtures/workspace/demo-001/renders/
+!tests/fixtures/workspace/demo-001/renders/.gitkeep
 cache/
+!tests/fixtures/workspace/demo-001/cache/
+!tests/fixtures/workspace/demo-001/cache/.gitkeep
 .worktrees/

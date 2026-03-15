@@ -59,6 +59,14 @@ Run the API tests:
 python -m pytest apps/api/tests -v
 ```
 
+Run the reproducible sample-project smoke path:
+
+```bash
+bash scripts/smoke-sample-project.sh
+```
+
+The smoke fixture lives at `tests/fixtures/workspace/demo-001/`. It is a committed single-project workspace snapshot with one image, one OCR bubble, one reviewed bubble, one translated script entry, one voice asset, and one rendered-scene input so the MVP happy path can be rechecked without OCR or TTS setup.
+
 Run the shared schema tests:
 
 ```bash

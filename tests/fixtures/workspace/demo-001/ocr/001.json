@@ -1,0 +1,15 @@
+[
+  {
+    "id": "bubble-001",
+    "text": "サンプルです。",
+    "bbox": {
+      "x": 24,
+      "y": 28,
+      "w": 72,
+      "h": 40
+    },
+    "order": 0,
+    "confidence": 0.99,
+    "language": "ja"
+  }
+]

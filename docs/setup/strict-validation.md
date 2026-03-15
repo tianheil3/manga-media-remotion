@@ -7,11 +7,14 @@ Repository strict validation is defined by `scripts/verify-strict.sh`.
 The default strict validation suite runs these commands in order:
 
 1. `python -m pytest apps/api/tests apps/cli/tests tests/bootstrap tests/docs tests/scripts -v`
-2. `npm test --workspace packages/schema`
-3. `npm test --workspace apps/web`
-4. `npm test --workspace apps/remotion`
+2. `bash scripts/smoke-sample-project.sh`
+3. `npm test --workspace packages/schema`
+4. `npm test --workspace apps/web`
+5. `npm test --workspace apps/remotion`
 
 The script stops on the first failure and returns that command's exit code.
+
+The smoke step copies the committed fixture at `tests/fixtures/workspace/demo-001/` into a temporary workspace, checks the CLI/API happy path, and renders a preview MP4.
 
 ## Issue-Specific Validation
 

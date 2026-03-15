@@ -44,6 +44,19 @@ The browser app also accepts `apiBaseUrl`, `projectId`, `frameId`, and `activeJo
 
 Run `python -m apps.cli.app.main doctor` after local setup changes to verify media tooling plus OCR, translation, and TTS prerequisites.
 
+## Sample Project Smoke
+
+The repository includes a committed workspace-shaped fixture at `tests/fixtures/workspace/demo-001/`.
+It covers a minimal completed happy path with separate OCR, reviewed, translated, voice, and scene data plus a tiny image and WAV asset.
+
+Run this smoke path to exercise the CLI progress view, file-backed API reads/media, and preview render against that fixture:
+
+```bash
+bash scripts/smoke-sample-project.sh
+```
+
+`scripts/verify-strict.sh` includes this smoke command so it can be rerun during regression checks without depending on ad hoc local workspace state.
+
 ## Symphony Auto-Land
 
 Symphony landing is repository-defined:

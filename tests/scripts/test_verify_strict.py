@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "verify-strict.sh"
 DEFAULT_COMMANDS = [
     "python -m pytest apps/api/tests apps/cli/tests tests/bootstrap tests/docs tests/scripts -v",
+    "bash scripts/smoke-sample-project.sh",
     "npm test --workspace packages/schema",
     "npm test --workspace apps/web",
     "npm test --workspace apps/remotion",
