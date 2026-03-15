@@ -36,16 +36,22 @@ def translate_command(
 
     store = FileStore(project_dir)
     project = store.load_project()
+    overrides = load_script_overrides(overrides_file)
+
+    try:
+        active_translation_service = translation_service.get_translation_service()
+    except translation_service.TranslationServiceError as exc:
+        active_translation_service = translation_service.DeferredFailureTranslationService(exc)
 
     try:
         entries = run_translation(
             project_dir,
             project=project,
-            translation_service=translation_service.get_translation_service(),
+            translation_service=active_translation_service,
             target_language=target_language,
-            overrides=load_script_overrides(overrides_file),
+            overrides=overrides,
         )
-    except ValueError as exc:
+    except (ValueError, translation_service.TranslationServiceError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
 

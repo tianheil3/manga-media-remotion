@@ -17,6 +17,7 @@ Setup guides live under `docs/setup/`:
 - `docs/setup/local-development.md`
 - `docs/setup/mangaocr.md`
 - `docs/setup/moyin-env.md`
+- `docs/setup/translation-env.md`
 - `docs/setup/symphony.md`
 - `docs/setup/strict-validation.md`
 - `docs/setup/symphony-land.md`

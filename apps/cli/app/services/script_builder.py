@@ -59,14 +59,20 @@ def build_script_entries(
             if reviewed_bubble.kind == "ignore":
                 continue
 
-            translated_text = translation_service.translate_text(
-                reviewed_bubble.text_edited,
-                source_language,
-                target_language,
-            )
             override = resolved_overrides.get(reviewed_bubble.source_bubble_id)
             if override and override.translated_text is not None:
                 translated_text = override.translated_text
+            else:
+                try:
+                    translated_text = translation_service.translate_text(
+                        reviewed_bubble.text_edited,
+                        source_language,
+                        target_language,
+                    )
+                except Exception as exc:
+                    raise ValueError(
+                        f"Translation failed for {reviewed_bubble.source_bubble_id} in {frame.frame_id}: {exc}"
+                    ) from exc
 
             voice_text = translated_text
             if override and override.voice_text is not None:

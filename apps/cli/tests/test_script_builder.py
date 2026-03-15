@@ -22,6 +22,11 @@ class FakeTranslationService:
         return f"{target_language}:{text}"
 
 
+class FailingTranslationService:
+    def translate_text(self, text: str, source_language: str, target_language: str) -> str:
+        raise RuntimeError("provider exploded")
+
+
 def create_project_with_reviewed_frame(tmp_path: Path) -> tuple[Path, Path]:
     workspace_root = tmp_path / "workspace"
     project_dir = workspace_root / "demo-001"
@@ -82,6 +87,7 @@ def test_translate_command_stores_translation_and_script_layers_separately(
             [
                 {
                     "sourceBubbleId": "bubble-001",
+                    "translatedText": "Override translated line",
                     "voiceText": "Longer spoken line for VO",
                     "subtitleText": "Short subtitle",
                 }
@@ -122,7 +128,167 @@ def test_translate_command_stores_translation_and_script_layers_separately(
             "frameId": "frame-001",
             "sourceBubbleId": "bubble-001",
             "sourceText": "cleaned japanese",
-            "translatedText": "zh:cleaned japanese",
+            "translatedText": "Override translated line",
+            "voiceText": "Longer spoken line for VO",
+            "subtitleText": "Short subtitle",
+            "kind": "dialogue",
+            "speaker": "Hero",
+        }
+    ]
+
+
+def test_translate_command_surfaces_provider_errors_without_overwriting_existing_script(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    workspace_root, project_dir = create_project_with_reviewed_frame(tmp_path)
+    existing_script = json.dumps(
+        [
+            {
+                "id": "existing-script-entry",
+                "frameId": "frame-000",
+                "sourceBubbleId": "bubble-000",
+                "sourceText": "existing source",
+                "translatedText": "existing translation",
+                "voiceText": "existing voice",
+                "subtitleText": "existing subtitle",
+                "kind": "dialogue",
+                "speaker": "Narrator",
+            }
+        ],
+        indent=2,
+    )
+    script_path = project_dir / "script" / "script.json"
+    script_path.parent.mkdir(parents=True, exist_ok=True)
+    script_path.write_text(existing_script + "\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        translation_service,
+        "get_translation_service",
+        lambda: FailingTranslationService(),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "translate",
+            "demo-001",
+            "--target-language",
+            "zh",
+            "--workspace-root",
+            str(workspace_root),
+        ],
+    )
+
+    assert result.exit_code == 1, result.stdout
+    assert "Translation failed for bubble-001 in frame-001: provider exploded" in result.stdout
+    assert script_path.read_text(encoding="utf-8") == existing_script + "\n"
+
+
+def test_translate_command_uses_translated_text_override_when_provider_fails(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    workspace_root, project_dir = create_project_with_reviewed_frame(tmp_path)
+    overrides_file = tmp_path / "script-overrides.json"
+    overrides_file.write_text(
+        json.dumps(
+            [
+                {
+                    "sourceBubbleId": "bubble-001",
+                    "translatedText": "Override translated line",
+                    "voiceText": "Longer spoken line for VO",
+                    "subtitleText": "Short subtitle",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        translation_service,
+        "get_translation_service",
+        lambda: FailingTranslationService(),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "translate",
+            "demo-001",
+            "--target-language",
+            "zh",
+            "--overrides-file",
+            str(overrides_file),
+            "--workspace-root",
+            str(workspace_root),
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    script_payload = json.loads((project_dir / "script" / "script.json").read_text(encoding="utf-8"))
+    assert script_payload == [
+        {
+            "id": "script-bubble-001",
+            "frameId": "frame-001",
+            "sourceBubbleId": "bubble-001",
+            "sourceText": "cleaned japanese",
+            "translatedText": "Override translated line",
+            "voiceText": "Longer spoken line for VO",
+            "subtitleText": "Short subtitle",
+            "kind": "dialogue",
+            "speaker": "Hero",
+        }
+    ]
+
+
+def test_translate_command_uses_translated_text_override_without_provider_configuration(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    workspace_root, project_dir = create_project_with_reviewed_frame(tmp_path)
+    overrides_file = tmp_path / "script-overrides.json"
+    overrides_file.write_text(
+        json.dumps(
+            [
+                {
+                    "sourceBubbleId": "bubble-001",
+                    "translatedText": "Override translated line",
+                    "voiceText": "Longer spoken line for VO",
+                    "subtitleText": "Short subtitle",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("TRANSLATION_PROVIDER", "deepl")
+    monkeypatch.delenv("DEEPL_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPL_BASE_URL", raising=False)
+
+    result = runner.invoke(
+        app,
+        [
+            "translate",
+            "demo-001",
+            "--target-language",
+            "zh",
+            "--overrides-file",
+            str(overrides_file),
+            "--workspace-root",
+            str(workspace_root),
+        ],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    script_payload = json.loads((project_dir / "script" / "script.json").read_text(encoding="utf-8"))
+    assert script_payload == [
+        {
+            "id": "script-bubble-001",
+            "frameId": "frame-001",
+            "sourceBubbleId": "bubble-001",
+            "sourceText": "cleaned japanese",
+            "translatedText": "Override translated line",
             "voiceText": "Longer spoken line for VO",
             "subtitleText": "Short subtitle",
             "kind": "dialogue",
