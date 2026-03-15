@@ -14,19 +14,32 @@ export const Fragment = Symbol.for("react.fragment");
 export function createElement(type, props, ...children) {
   const normalizedChildren = [];
   flattenChildren(children, normalizedChildren);
+  const normalizedProps = { ...(props ?? {}) };
+
+  if (normalizedChildren.length === 1) {
+    normalizedProps.children = normalizedChildren[0];
+  } else if (normalizedChildren.length > 1) {
+    normalizedProps.children = normalizedChildren;
+  }
 
   return {
     type,
-    props: {
-      ...(props ?? {}),
-      children: normalizedChildren,
-    },
+    props: normalizedProps,
   };
 }
+
+export function useState(initialValue) {
+  const value = typeof initialValue === "function" ? initialValue() : initialValue;
+  return [value, () => {}];
+}
+
+export function useEffect() {}
 
 const React = {
   Fragment,
   createElement,
+  useEffect,
+  useState,
 };
 
 export default React;

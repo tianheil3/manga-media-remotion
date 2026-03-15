@@ -5,6 +5,7 @@
 - Python 3.12 or newer
 - Node.js 20 or newer
 - `npm`
+- `ffmpeg`
 
 ## Install Python Dependencies
 
@@ -19,6 +20,14 @@ pip install fastapi uvicorn typer pytest
 ```
 
 Install any additional OCR or audio dependencies from the dedicated setup guides before running pipeline stages that need them.
+
+After installing the CLI dependencies and provider configuration, run the setup check:
+
+```bash
+python -m apps.cli.app.main doctor
+```
+
+`doctor` verifies media tooling (`python`, `node`, `ffmpeg`) plus the active OCR, translation, and TTS prerequisites.
 
 ## Install Node Dependencies
 

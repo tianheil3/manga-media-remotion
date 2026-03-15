@@ -12,3 +12,5 @@ export MOYIN_TTS_API_KEY="your-api-key"
 The CLI voice stage uses these values when `apps/cli/app/services/voice_generation.py` creates the default Moyin provider.
 
 If these values are missing, the voice stage will fail fast with a configuration error instead of silently generating incorrect audio.
+
+`python -m apps.cli.app.main doctor` checks this configuration directly so missing `MOYIN_TTS_BASE_URL` or `MOYIN_TTS_API_KEY` is visible before voice generation runs.

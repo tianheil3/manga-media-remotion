@@ -18,3 +18,5 @@ export DEEPL_BASE_URL="https://api-free.deepl.com/v2/translate"
 `apps/cli/app/services/translation_service.py` reads these values when `translate` resolves the default translation provider.
 
 If the required values are missing, the translation stage fails fast with a configuration error instead of writing passthrough or partial script output.
+
+`python -m apps.cli.app.main doctor` runs the same translation setup validation and reports unsupported providers or missing DeepL variables before unattended runs start.

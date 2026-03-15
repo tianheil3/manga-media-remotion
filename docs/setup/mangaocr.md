@@ -18,3 +18,5 @@ PY
 ```
 
 The CLI OCR stage lazily imports `manga-ocr`, so projects can still use non-OCR stages even when the package has not been installed yet.
+
+`python -m apps.cli.app.main doctor` validates this by checking that `from manga_ocr import MangaOcr` works in the active environment.

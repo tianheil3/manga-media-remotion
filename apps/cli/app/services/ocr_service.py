@@ -13,16 +13,20 @@ class OcrEngine(Protocol):
         ...
 
 
+def validate_ocr_setup():
+    try:
+        from manga_ocr import MangaOcr
+    except ImportError as exc:
+        raise RuntimeError(
+            "MangaOCR is not installed. Install the `manga-ocr` Python package before running OCR or `doctor`."
+        ) from exc
+
+    return MangaOcr
+
+
 class MangaOcrEngine:
     def __init__(self) -> None:
-        try:
-            from manga_ocr import MangaOcr
-        except ImportError as exc:
-            raise RuntimeError(
-                "MangaOCR is not installed. Install the `manga-ocr` Python package before running OCR."
-            ) from exc
-
-        self._engine = MangaOcr()
+        self._engine = validate_ocr_setup()()
 
     def extract_bubbles(self, image_path: Path) -> list[dict[str, object]]:
         text = str(self._engine(str(image_path))).strip()

@@ -22,6 +22,8 @@ Setup guides live under `docs/setup/`:
 - `docs/setup/strict-validation.md`
 - `docs/setup/symphony-land.md`
 
+Run `python -m apps.cli.app.main doctor` after local setup changes to verify media tooling plus OCR, translation, and TTS prerequisites.
+
 ## Symphony Auto-Land
 
 Symphony landing is repository-defined:
