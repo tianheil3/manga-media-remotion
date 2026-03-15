@@ -22,10 +22,13 @@ def test_setup_docs_cover_local_development_requirements() -> None:
     assert "apps/remotion" in local_dev
     assert "doctor" in readme
     assert "doctor" in local_dev
+    assert "MANGA_WORKSPACE_ROOT" in readme
+    assert "MANGA_WORKSPACE_ROOT" in local_dev
     assert "bash scripts/smoke-sample-project.sh" in readme
     assert "bash scripts/smoke-sample-project.sh" in local_dev
     assert "tests/fixtures/workspace/demo-001" in readme
     assert "tests/fixtures/workspace/demo-001" in local_dev
+    assert "docs/verification/mvp-real-run-2026-03-15.md" in readme
     assert "MOYIN_TTS_BASE_URL" in moyin_env
     assert "MOYIN_TTS_API_KEY" in moyin_env
     assert "doctor" in moyin_env

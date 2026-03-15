@@ -29,7 +29,7 @@ Setup guides live under `docs/setup/`:
 Typical local flow:
 
 ```bash
-uvicorn apps.api.app.main:app --reload
+MANGA_WORKSPACE_ROOT="$(pwd)/workspace" uvicorn apps.api.app.main:app --reload
 MANGA_API_BASE_URL=http://127.0.0.1:8000 npm run dev --workspace apps/web -- --host 127.0.0.1 --port 4173
 ```
 
@@ -43,6 +43,8 @@ npm run build --workspace apps/web
 The browser app also accepts `apiBaseUrl`, `projectId`, `frameId`, and `activeJobId` query parameters so you can deep-link into a review session.
 
 Run `python -m apps.cli.app.main doctor` after local setup changes to verify media tooling plus OCR, translation, and TTS prerequisites.
+
+The latest checked-in real workflow run record is `docs/verification/mvp-real-run-2026-03-15.md`.
 
 ## Sample Project Smoke
 
