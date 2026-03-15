@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "projectSlug": "manga-media-remotion-e37e12494859",
+  "teamKey": "TIA",
+  "sourceState": "Backlog",
+  "targetState": "Todo",
+  "promotions": [
+    {
+      "issue": "TIA-34",
+      "dependsOn": ["TIA-31", "TIA-32"]
+    },
+    {
+      "issue": "TIA-35",
+      "dependsOn": ["TIA-30", "TIA-32", "TIA-34"]
+    },
+    {
+      "issue": "TIA-37",
+      "dependsOn": ["TIA-30", "TIA-31", "TIA-32", "TIA-34", "TIA-35"]
+    },
+    {
+      "issue": "TIA-36",
+      "dependsOn": ["TIA-33", "TIA-34", "TIA-35", "TIA-37"]
+    },
+    {
+      "issue": "TIA-38",
+      "dependsOn": ["TIA-33", "TIA-36"]
+    },
+    {
+      "issue": "TIA-39",
+      "dependsOn": ["TIA-36"]
+    },
+    {
+      "issue": "TIA-40",
+      "dependsOn": ["TIA-36", "TIA-39"]
+    },
+    {
+      "issue": "TIA-41",
+      "dependsOn": ["TIA-30", "TIA-31", "TIA-32", "TIA-34", "TIA-35", "TIA-36"]
+    },
+    {
+      "issue": "TIA-42",
+      "dependsOn": ["TIA-36", "TIA-41"]
+    }
+  ]
+}
