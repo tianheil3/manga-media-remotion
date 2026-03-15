@@ -88,6 +88,36 @@ def find_eligible_promotions(
     return eligible
 
 
+def apply_promotions(
+    config: dict[str, object],
+    issue_states: dict[str, str],
+    *,
+    promote_issue,
+    dry_run: bool = False,
+) -> dict[str, object]:
+    target_state = config["targetState"]
+    assert isinstance(target_state, str)
+
+    promoted: list[str] = []
+    errors: dict[str, str] = {}
+
+    for issue in find_eligible_promotions(config, issue_states):
+        if dry_run:
+            promoted.append(issue)
+            continue
+        try:
+            promote_issue(issue, target_state)
+        except Exception as exc:  # pragma: no cover - exercised via tests
+            errors[issue] = str(exc)
+            continue
+        promoted.append(issue)
+
+    return {
+        "promoted": promoted,
+        "errors": errors,
+    }
+
+
 class LinearClient:
     def __init__(self, api_key: str | None = None, *, url: str = LINEAR_API_URL) -> None:
         self.api_key = api_key or os.environ["LINEAR_API_KEY"]

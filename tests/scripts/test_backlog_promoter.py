@@ -172,3 +172,99 @@ def test_find_eligible_promotions_returns_multiple_independent_targets() -> None
     }
 
     assert module.find_eligible_promotions(config, issue_states) == ["TIA-202", "TIA-203"]
+
+
+def test_apply_promotions_updates_eligible_issues_from_backlog_to_todo() -> None:
+    module = load_module()
+    config = {
+        "version": 1,
+        "projectSlug": "demo-project",
+        "teamKey": "TIA",
+        "sourceState": "Backlog",
+        "targetState": "Todo",
+        "promotions": [
+            {"issue": "TIA-300", "dependsOn": ["TIA-1"]},
+        ],
+    }
+    issue_states = {
+        "TIA-1": "Done",
+        "TIA-300": "Backlog",
+    }
+    promoted: list[tuple[str, str]] = []
+
+    result = module.apply_promotions(
+        config,
+        issue_states,
+        promote_issue=lambda issue, state: promoted.append((issue, state)),
+    )
+
+    assert result["promoted"] == ["TIA-300"]
+    assert result["errors"] == {}
+    assert promoted == [("TIA-300", "Todo")]
+
+
+def test_apply_promotions_dry_run_skips_issue_updates() -> None:
+    module = load_module()
+    config = {
+        "version": 1,
+        "projectSlug": "demo-project",
+        "teamKey": "TIA",
+        "sourceState": "Backlog",
+        "targetState": "Todo",
+        "promotions": [
+            {"issue": "TIA-301", "dependsOn": ["TIA-1"]},
+        ],
+    }
+    issue_states = {
+        "TIA-1": "Done",
+        "TIA-301": "Backlog",
+    }
+    promoted: list[tuple[str, str]] = []
+
+    result = module.apply_promotions(
+        config,
+        issue_states,
+        promote_issue=lambda issue, state: promoted.append((issue, state)),
+        dry_run=True,
+    )
+
+    assert result["promoted"] == ["TIA-301"]
+    assert result["errors"] == {}
+    assert promoted == []
+
+
+def test_apply_promotions_continues_after_single_issue_update_failure() -> None:
+    module = load_module()
+    config = {
+        "version": 1,
+        "projectSlug": "demo-project",
+        "teamKey": "TIA",
+        "sourceState": "Backlog",
+        "targetState": "Todo",
+        "promotions": [
+            {"issue": "TIA-302", "dependsOn": ["TIA-1"]},
+            {"issue": "TIA-303", "dependsOn": ["TIA-2"]},
+        ],
+    }
+    issue_states = {
+        "TIA-1": "Done",
+        "TIA-2": "Done",
+        "TIA-302": "Backlog",
+        "TIA-303": "Backlog",
+    }
+    promoted: list[tuple[str, str]] = []
+
+    def promote_issue(issue: str, state: str) -> None:
+        if issue == "TIA-302":
+            raise RuntimeError("boom")
+        promoted.append((issue, state))
+
+    result = module.apply_promotions(
+        config,
+        issue_states,
+        promote_issue=promote_issue,
+    )
+
+    assert result["promoted"] == ["TIA-303"]
+    assert result["errors"] == {"TIA-302": "boom"}
+    assert promoted == [("TIA-303", "Todo")]
