@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
 from pathlib import Path
+import time
 from typing import Any
 import urllib.request
 
 
 LINEAR_API_URL = "https://api.linear.app/graphql"
+DEFAULT_CONFIG_PATH = Path("config/backlog-promoter.json")
+DEFAULT_INTERVAL_SECONDS = 30
 
 
 ISSUE_IDENTIFIER_PATTERN = re.compile(r"^[A-Z]+-\d+$")
@@ -208,6 +212,47 @@ class LinearClient:
         return data["project"]["issues"]["nodes"]
 
 
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Promote configured Linear backlog issues to Todo")
+    mode_group = parser.add_mutually_exclusive_group(required=True)
+    mode_group.add_argument("--once", action="store_true", help="Run one promotion pass")
+    mode_group.add_argument("--poll", action="store_true", help="Run the promoter continuously")
+    parser.add_argument("--dry-run", action="store_true", help="Evaluate without updating Linear")
+    parser.add_argument(
+        "--config",
+        default=str(DEFAULT_CONFIG_PATH),
+        help="Path to backlog promoter config",
+    )
+    parser.add_argument(
+        "--interval-seconds",
+        type=int,
+        default=DEFAULT_INTERVAL_SECONDS,
+        help="Polling interval for --poll mode",
+    )
+    return parser.parse_args(argv)
+
+
+def run_cycle(*, config_path: Path, dry_run: bool) -> dict[str, object]:
+    load_config(config_path)
+    return {"promoted": [], "errors": {}}
+
+
+def run_polling_loop(
+    run_once,
+    *,
+    interval_seconds: int,
+    sleep=time.sleep,
+    max_iterations: int | None = None,
+) -> None:
+    iterations = 0
+    while True:
+        run_once()
+        iterations += 1
+        if max_iterations is not None and iterations >= max_iterations:
+            return
+        sleep(interval_seconds)
+
+
 def _assert_no_cycles(dependency_graph: dict[str, set[str]]) -> None:
     visited: set[str] = set()
     active: set[str] = set()
@@ -229,8 +274,18 @@ def _assert_no_cycles(dependency_graph: dict[str, set[str]]) -> None:
         visit(issue)
 
 
-def main() -> int:
-    load_config(Path("config/backlog-promoter.json"))
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    config_path = Path(args.config)
+
+    if args.once:
+        run_cycle(config_path=config_path, dry_run=args.dry_run)
+        return 0
+
+    run_polling_loop(
+        lambda: run_cycle(config_path=config_path, dry_run=args.dry_run),
+        interval_seconds=args.interval_seconds,
+    )
     return 0
 
 

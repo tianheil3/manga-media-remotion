@@ -4,6 +4,7 @@ import importlib.util
 import json
 from pathlib import Path
 import pytest
+from argparse import Namespace
 
 
 CONFIG_PATH = Path("config/backlog-promoter.json")
@@ -268,3 +269,42 @@ def test_apply_promotions_continues_after_single_issue_update_failure() -> None:
     assert result["promoted"] == ["TIA-303"]
     assert result["errors"] == {"TIA-302": "boom"}
     assert promoted == [("TIA-303", "Todo")]
+
+
+def test_parse_args_rejects_once_and_poll_together() -> None:
+    module = load_module()
+
+    with pytest.raises(SystemExit):
+        module.parse_args(["--once", "--poll"])
+
+
+def test_main_once_mode_runs_single_cycle_with_dry_run(tmp_path: Path, monkeypatch) -> None:
+    module = load_module()
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    calls: list[dict[str, object]] = []
+
+    def fake_run_cycle(*, config_path: Path, dry_run: bool) -> dict[str, object]:
+        calls.append({"config_path": config_path, "dry_run": dry_run})
+        return {"promoted": [], "errors": {}}
+
+    monkeypatch.setattr(module, "run_cycle", fake_run_cycle)
+
+    assert module.main(["--once", "--dry-run", "--config", str(config_path)]) == 0
+    assert calls == [{"config_path": config_path, "dry_run": True}]
+
+
+def test_run_polling_loop_sleeps_between_runs() -> None:
+    module = load_module()
+    runs: list[str] = []
+    sleeps: list[int] = []
+
+    module.run_polling_loop(
+        lambda: runs.append("run"),
+        interval_seconds=7,
+        sleep=sleeps.append,
+        max_iterations=2,
+    )
+
+    assert runs == ["run", "run"]
+    assert sleeps == [7]
