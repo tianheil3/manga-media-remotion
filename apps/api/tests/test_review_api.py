@@ -69,7 +69,7 @@ def test_get_frames_returns_reviewable_frame_data(tmp_path: Path) -> None:
     assert get_frames("demo-001", request) == [
         {
             "frameId": "frame-001",
-            "image": "images/001.png",
+            "image": "/projects/demo-001/media/images/001.png",
             "ocrFile": "ocr/001.json",
             "bubbles": [
                 {

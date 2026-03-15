@@ -4,6 +4,8 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from apps.api.app.models.frame import Frame
+from apps.api.app.services.project_media import project_dir_or_404, project_media_url
 from apps.api.app.services.file_store import FileStore
 from apps.cli.app.services.review_state import ReviewEntry, apply_review
 
@@ -35,7 +37,7 @@ def get_frames(project_id: str, request: Request) -> list[dict[str, object]]:
     except FileNotFoundError:
         return []
 
-    return [frame.model_dump(mode="json", by_alias=True) for frame in frames]
+    return [_frame_payload(project_id, frame) for frame in frames]
 
 
 @router.put("/{project_id}/frames/{frame_id}/review")
@@ -70,7 +72,7 @@ def update_frame_review(
             raise HTTPException(status_code=404, detail=detail) from error
         raise HTTPException(status_code=400, detail=detail) from error
 
-    return updated_frame.model_dump(mode="json", by_alias=True)
+    return _frame_payload(project_id, updated_frame)
 
 
 def _project_store(project_id: str, request: Request) -> FileStore:
@@ -78,7 +80,10 @@ def _project_store(project_id: str, request: Request) -> FileStore:
 
 
 def _project_dir(project_id: str, request: Request) -> Path:
-    project_dir = Path(request.app.state.workspace_root) / project_id
-    if not (project_dir / "project.json").exists():
-        raise HTTPException(status_code=404, detail="Project not found")
-    return project_dir
+    return project_dir_or_404(project_id, request)
+
+
+def _frame_payload(project_id: str, frame: Frame) -> dict[str, object]:
+    payload = frame.model_dump(mode="json", by_alias=True)
+    payload["image"] = project_media_url(project_id, frame.image)
+    return payload

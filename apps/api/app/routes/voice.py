@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from apps.api.app.models.scene import Scene
 from apps.api.app.models.voice import VoiceSegment
 from apps.api.app.services.file_store import FileStore
+from apps.api.app.services.project_media import project_dir_or_404, project_media_url
 from apps.cli.app.services.recording import record_voice_segment
 from apps.cli.app.services.scene_sync import resolve_scene_voice_ids, resolve_voice_for_scene
 
@@ -90,7 +91,7 @@ def replace_voice_audio(
         detail = str(error)
         status_code = 404 if detail.startswith("Unknown voice segment:") else 400
         raise HTTPException(status_code=status_code, detail=detail) from error
-    return voice.model_dump(mode="json", by_alias=True)
+    return _voice_payload(project_id, voice)
 
 
 @router.post("/{project_id}/voices/{voice_id}/skip")
@@ -101,7 +102,7 @@ def skip_voice_recording(project_id: str, voice_id: str, request: Request) -> di
         detail = str(error)
         status_code = 404 if detail.startswith("Unknown voice segment:") else 400
         raise HTTPException(status_code=status_code, detail=detail) from error
-    return voice.model_dump(mode="json", by_alias=True)
+    return _voice_payload(project_id, voice)
 
 
 def _audio_metadata(project_id: str, voice: VoiceSegment | None) -> dict[str, object] | None:
@@ -114,7 +115,7 @@ def _audio_metadata(project_id: str, voice: VoiceSegment | None) -> dict[str, ob
         "mode": voice.mode,
         "role": voice.role,
         "speaker": voice.speaker,
-        "audioFile": voice.audio_file,
+        "audioFile": project_media_url(project_id, voice.audio_file),
         "durationMs": voice.duration_ms,
         "replaceAudioPath": f"/projects/{project_id}/voices/{voice.id}/audio",
         "skipRecordingPath": f"/projects/{project_id}/voices/{voice.id}/skip",
@@ -132,7 +133,7 @@ def _scene_review_payloads(
     for scene in scenes:
         voice_id = scene.voice_id or scene_voice_ids.get(scene.id)
         voice = voices_by_id.get(voice_id) if voice_id is not None else resolve_voice_for_scene(scene, voices)
-        scene_payload = scene.model_dump(mode="json", by_alias=True)
+        scene_payload = _scene_payload(project_id, scene)
         scene_payload["voiceId"] = voice_id
         scene_payload["audioMetadata"] = _audio_metadata(project_id, voice)
         payload.append(scene_payload)
@@ -148,11 +149,21 @@ def _load_optional_list(loader):
 
 
 def _project_store(project_id: str, request: Request) -> FileStore:
-    project_dir = Path(request.app.state.workspace_root) / project_id
-    if not (project_dir / "project.json").exists():
-        raise HTTPException(status_code=404, detail="Project not found")
-    return FileStore(project_dir)
+    return FileStore(project_dir_or_404(project_id, request))
 
 
 def _utc_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _scene_payload(project_id: str, scene: Scene) -> dict[str, object]:
+    payload = scene.model_dump(mode="json", by_alias=True)
+    payload["image"] = project_media_url(project_id, scene.image)
+    payload["audio"] = project_media_url(project_id, scene.audio)
+    return payload
+
+
+def _voice_payload(project_id: str, voice: VoiceSegment) -> dict[str, object]:
+    payload = voice.model_dump(mode="json", by_alias=True)
+    payload["audioFile"] = project_media_url(project_id, voice.audio_file)
+    return payload

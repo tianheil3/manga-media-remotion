@@ -209,7 +209,7 @@ def expected_audio_metadata(project_id: str) -> dict[str, object]:
         "mode": "tts",
         "role": "narrator",
         "speaker": "Narrator",
-        "audioFile": "audio/narration/script-bubble-001.wav",
+        "audioFile": f"/projects/{project_id}/media/audio/narration/script-bubble-001.wav",
         "durationMs": 1200,
         "replaceAudioPath": f"/projects/{project_id}/voices/voice-script-bubble-001/audio",
         "skipRecordingPath": f"/projects/{project_id}/voices/voice-script-bubble-001/skip",
@@ -239,10 +239,10 @@ def test_get_scene_review_lists_scenes_with_audio_metadata_and_actions(tmp_path:
         {
             "id": "scene-001",
             "type": "narration",
-            "image": "images/001.png",
+            "image": "/projects/demo-001/media/images/001.png",
             "subtitleText": "Original subtitle",
             "voiceId": "voice-script-bubble-001",
-            "audio": "audio/narration/script-bubble-001.wav",
+            "audio": "/projects/demo-001/media/audio/narration/script-bubble-001.wav",
             "durationMs": 1400,
             "speaker": "Narrator",
             "stylePreset": "default",
@@ -272,10 +272,10 @@ def test_update_scene_persists_subtitle_duration_and_style(tmp_path: Path) -> No
     assert updated_scene == {
         "id": "scene-001",
         "type": "narration",
-        "image": "images/001.png",
+        "image": "/projects/demo-001/media/images/001.png",
         "subtitleText": "Edited subtitle",
         "voiceId": "voice-script-bubble-001",
-        "audio": "audio/narration/script-bubble-001.wav",
+        "audio": "/projects/demo-001/media/audio/narration/script-bubble-001.wav",
         "durationMs": 1800,
         "speaker": "Narrator",
         "stylePreset": "dramatic",
@@ -287,9 +287,17 @@ def test_update_scene_persists_subtitle_duration_and_style(tmp_path: Path) -> No
     stored_scenes = json.loads((project_dir / "script" / "scenes.json").read_text(encoding="utf-8"))
     assert stored_scenes == [
         {
-            key: value
-            for key, value in updated_scene.items()
-            if key != "audioMetadata"
+            "id": "scene-001",
+            "type": "narration",
+            "image": "images/001.png",
+            "subtitleText": "Edited subtitle",
+            "voiceId": "voice-script-bubble-001",
+            "audio": "audio/narration/script-bubble-001.wav",
+            "durationMs": 1800,
+            "speaker": "Narrator",
+            "stylePreset": "dramatic",
+            "cameraMotion": None,
+            "transition": "cut",
         }
     ]
 
@@ -322,7 +330,7 @@ def test_get_scene_review_keeps_audio_actions_for_skipped_voice_segments(tmp_pat
         {
             "id": "scene-001",
             "type": "narration",
-            "image": "images/001.png",
+            "image": "/projects/demo-001/media/images/001.png",
             "subtitleText": "Original subtitle",
             "voiceId": "voice-script-bubble-001",
             "audio": None,
@@ -378,7 +386,7 @@ def test_replace_voice_audio_updates_the_voice_segment_and_synces_scene_review(t
         "role": "narrator",
         "speaker": "Narrator",
         "voicePreset": "narrator-default",
-        "audioFile": "audio/recorded/voice-script-bubble-001.wav",
+        "audioFile": "/projects/demo-001/media/audio/recorded/voice-script-bubble-001.wav",
         "transcript": None,
         "durationMs": 900,
     }
@@ -389,10 +397,10 @@ def test_replace_voice_audio_updates_the_voice_segment_and_synces_scene_review(t
         {
             "id": "scene-001",
             "type": "narration",
-            "image": "images/001.png",
+            "image": "/projects/demo-001/media/images/001.png",
             "subtitleText": "Original subtitle",
             "voiceId": "voice-script-bubble-001",
-            "audio": "audio/recorded/voice-script-bubble-001.wav",
+            "audio": "/projects/demo-001/media/audio/recorded/voice-script-bubble-001.wav",
             "durationMs": 1100,
             "speaker": "Narrator",
             "stylePreset": "default",
@@ -404,7 +412,7 @@ def test_replace_voice_audio_updates_the_voice_segment_and_synces_scene_review(t
                 "mode": "record",
                 "role": "narrator",
                 "speaker": "Narrator",
-                "audioFile": "audio/recorded/voice-script-bubble-001.wav",
+                "audioFile": "/projects/demo-001/media/audio/recorded/voice-script-bubble-001.wav",
                 "durationMs": 900,
                 "replaceAudioPath": "/projects/demo-001/voices/voice-script-bubble-001/audio",
                 "skipRecordingPath": "/projects/demo-001/voices/voice-script-bubble-001/skip",
@@ -438,7 +446,7 @@ def test_skip_voice_recording_marks_the_segment_as_skipped_and_clears_scene_audi
         {
             "id": "scene-001",
             "type": "narration",
-            "image": "images/001.png",
+            "image": "/projects/demo-001/media/images/001.png",
             "subtitleText": "Original subtitle",
             "voiceId": "voice-script-bubble-001",
             "audio": None,
@@ -471,7 +479,7 @@ def test_get_scene_review_resolves_legacy_skipped_scene_without_voice_id(tmp_pat
         {
             "id": "scene-001",
             "type": "narration",
-            "image": "images/001.png",
+            "image": "/projects/demo-001/media/images/001.png",
             "subtitleText": "Original subtitle",
             "voiceId": "voice-script-bubble-001",
             "audio": None,
@@ -531,10 +539,10 @@ def test_replace_voice_audio_syncs_legacy_skipped_scene_without_voice_id(tmp_pat
         {
             "id": "scene-001",
             "type": "narration",
-            "image": "images/001.png",
+            "image": "/projects/demo-001/media/images/001.png",
             "subtitleText": "Original subtitle",
             "voiceId": "voice-script-bubble-001",
-            "audio": "audio/recorded/voice-script-bubble-001.wav",
+            "audio": "/projects/demo-001/media/audio/recorded/voice-script-bubble-001.wav",
             "durationMs": 1100,
             "speaker": "Narrator",
             "stylePreset": "default",
@@ -546,7 +554,7 @@ def test_replace_voice_audio_syncs_legacy_skipped_scene_without_voice_id(tmp_pat
                 "mode": "record",
                 "role": "narrator",
                 "speaker": "Narrator",
-                "audioFile": "audio/recorded/voice-script-bubble-001.wav",
+                "audioFile": "/projects/demo-001/media/audio/recorded/voice-script-bubble-001.wav",
                 "durationMs": 900,
                 "replaceAudioPath": "/projects/demo-001/voices/voice-script-bubble-001/audio",
                 "skipRecordingPath": "/projects/demo-001/voices/voice-script-bubble-001/skip",

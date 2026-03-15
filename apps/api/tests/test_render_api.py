@@ -3,7 +3,8 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, HTTPException
+import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
@@ -69,7 +70,7 @@ def test_create_render_job_persists_a_queued_job(tmp_path: Path) -> None:
     assert job["projectId"] == "demo-001"
     assert job["kind"] == "preview"
     assert job["status"] == "queued"
-    assert job["outputFile"] == "renders/preview-render-preview-001.mp4"
+    assert job["outputFile"] == "/projects/demo-001/media/renders/preview-render-preview-001.mp4"
     assert job["statusPath"] == "/projects/demo-001/render-jobs/render-preview-001"
     assert job["createdAt"].endswith("Z")
     assert job["updatedAt"].endswith("Z")
@@ -91,6 +92,18 @@ def test_get_render_job_is_idempotent_and_does_not_mutate_state(tmp_path: Path) 
     assert second["updatedAt"] == created_job.updated_at
 
 
+def test_get_render_job_returns_actionable_404_for_unknown_jobs(tmp_path: Path) -> None:
+    workspace_root = tmp_path / "workspace"
+    create_project(workspace_root, "demo-001")
+    request = make_request(workspace_root)
+
+    with pytest.raises(HTTPException) as error:
+        get_render_job("demo-001", "render-preview-999", request)
+
+    assert error.value.status_code == 404
+    assert error.value.detail == "Unknown render job: render-preview-999"
+
+
 def test_post_render_job_starts_real_renders_and_persists_non_empty_output_files(
     tmp_path: Path,
 ) -> None:
@@ -109,7 +122,8 @@ def test_post_render_job_starts_real_renders_and_persists_non_empty_output_files
         )
         run_background_tasks(background_tasks)
         completed_job = get_render_job("demo-001", created_job["id"], request)
-        output_path = workspace_root / "demo-001" / completed_job["outputFile"]
+        output_file = completed_job["outputFile"].removeprefix("/projects/demo-001/media/")
+        output_path = workspace_root / "demo-001" / output_file
 
         assert created_job["status"] == "queued"
         assert completed_job["status"] == "completed"

@@ -173,10 +173,10 @@ def test_projects_api_lists_details_and_scenes(tmp_path: Path) -> None:
         {
             "id": "scene-001",
             "type": "dialogue",
-            "image": "images/001.png",
+            "image": "/projects/demo-001/media/images/001.png",
             "subtitleText": "subtitle",
             "voiceId": None,
-            "audio": "audio/characters/script-bubble-001.wav",
+            "audio": "/projects/demo-001/media/audio/characters/script-bubble-001.wav",
             "durationMs": 1100,
             "speaker": "Hero",
             "stylePreset": "default",

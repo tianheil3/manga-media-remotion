@@ -4,6 +4,7 @@ from typing import Literal
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from pydantic import BaseModel
 
+from apps.api.app.services.project_media import project_dir_or_404, project_media_url
 from apps.api.app.services.render_jobs import create_job, get_job, run_job
 
 router = APIRouter(prefix="/projects", tags=["render"])
@@ -39,12 +40,10 @@ def get_render_job(project_id: str, job_id: str, request: Request) -> dict[str, 
 def _job_payload(project_id: str, job: dict[str, object]) -> dict[str, object]:
     return {
         **job,
+        "outputFile": project_media_url(project_id, str(job["outputFile"])),
         "statusPath": f"/projects/{project_id}/render-jobs/{job['id']}",
     }
 
 
 def _project_dir(project_id: str, request: Request) -> Path:
-    project_dir = Path(request.app.state.workspace_root) / project_id
-    if not (project_dir / "project.json").exists():
-        raise HTTPException(status_code=404, detail="Project not found")
-    return project_dir
+    return project_dir_or_404(project_id, request)
