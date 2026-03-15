@@ -29,19 +29,12 @@ class MangaOcrEngine:
         self._engine = validate_ocr_setup()()
 
     def extract_bubbles(self, image_path: Path) -> list[dict[str, object]]:
-        text = str(self._engine(str(image_path))).strip()
-        if not text:
-            return []
+        image = _load_image(image_path)
+        localized_bubbles = _extract_localized_bubbles(self._engine, image)
+        if localized_bubbles:
+            return localized_bubbles
 
-        return [
-            {
-                "id": "bubble-001",
-                "text": text,
-                "bbox": {"x": 0, "y": 0, "w": 1, "h": 1},
-                "confidence": 1.0,
-                "language": "ja",
-            }
-        ]
+        return _extract_full_page_bubble(self._engine, image)
 
 
 def get_ocr_engine() -> OcrEngine:
@@ -111,3 +104,88 @@ def normalize_bubbles(raw_bubbles: list[dict[str, object]]) -> list[OcrBubble]:
 
 def _utc_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _load_image(image_path: Path):
+    try:
+        from PIL import Image
+    except ImportError as exc:
+        raise RuntimeError("OCR localization requires Pillow. Install Pillow before running OCR.") from exc
+
+    with Image.open(image_path) as source_image:
+        return source_image.convert("RGB")
+
+
+def _extract_localized_bubbles(engine, image) -> list[dict[str, object]]:
+    localized_bubbles: list[dict[str, object]] = []
+
+    for bbox in _localize_bubble_regions(image):
+        crop = image.crop((bbox["x"], bbox["y"], bbox["x"] + bbox["w"], bbox["y"] + bbox["h"]))
+        text = str(engine(crop)).strip()
+        if not text:
+            continue
+
+        localized_bubbles.append(
+            {
+                "text": text,
+                "bbox": bbox,
+                "confidence": 1.0,
+                "language": "ja",
+            }
+        )
+
+    return localized_bubbles
+
+
+def _extract_full_page_bubble(engine, image) -> list[dict[str, object]]:
+    text = str(engine(image)).strip()
+    if not text:
+        return []
+
+    width, height = image.size
+    return [
+        {
+            "text": text,
+            "bbox": {"x": 0, "y": 0, "w": width, "h": height},
+            "confidence": 1.0,
+            "language": "ja",
+        }
+    ]
+
+
+def _localize_bubble_regions(image) -> list[dict[str, int]]:
+    try:
+        import cv2
+        import numpy as np
+    except ImportError as exc:
+        raise RuntimeError(
+            "OCR localization requires opencv-python and numpy. Install the local render dependencies before running OCR."
+        ) from exc
+
+    grayscale = np.array(image.convert("L"))
+    _, mask = cv2.threshold(grayscale, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    kernel_size = min(25, max(5, min(image.size) // 40))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+    dilated = cv2.dilate(mask, kernel, iterations=1)
+
+    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    min_width = max(10, image.width // 100)
+    min_height = max(10, image.height // 100)
+    min_foreground_pixels = max(20, (image.width * image.height) // 5000)
+    padding = max(2, min(image.size) // 200)
+
+    localized_regions: list[dict[str, int]] = []
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        foreground_pixels = int(cv2.countNonZero(mask[y : y + h, x : x + w]))
+        if w < min_width or h < min_height or foreground_pixels < min_foreground_pixels:
+            continue
+
+        x0 = max(0, x - padding)
+        y0 = max(0, y - padding)
+        x1 = min(image.width, x + w + padding)
+        y1 = min(image.height, y + h + padding)
+        localized_regions.append({"x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0})
+
+    return localized_regions
