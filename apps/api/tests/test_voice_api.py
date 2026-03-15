@@ -5,6 +5,9 @@ import sys
 from types import SimpleNamespace
 import wave
 
+from fastapi import HTTPException
+import pytest
+
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -561,3 +564,37 @@ def test_replace_voice_audio_syncs_legacy_skipped_scene_without_voice_id(tmp_pat
             },
         }
     ]
+
+
+def test_get_scene_review_returns_actionable_integrity_error_for_broken_scene_voice_reference(
+    tmp_path: Path,
+) -> None:
+    workspace_root = tmp_path / "workspace"
+    project_dir = create_project_with_scenes(workspace_root, "demo-001")
+    request = make_request(workspace_root)
+
+    store = FileStore(project_dir)
+    store.save_scenes(
+        [
+            Scene(
+                id="scene-001",
+                type="narration",
+                image="images/001.png",
+                subtitleText="Original subtitle",
+                voiceId="voice-missing",
+                audio="audio/narration/stale.wav",
+                durationMs=1400,
+                speaker="Narrator",
+                stylePreset="default",
+                transition="cut",
+            )
+        ]
+    )
+
+    with pytest.raises(HTTPException) as error:
+        get_scene_review("demo-001", request)
+
+    assert error.value.status_code == 409
+    assert "Project integrity check failed" in error.value.detail
+    assert "scene-001" in error.value.detail
+    assert "repair demo-001" in error.value.detail

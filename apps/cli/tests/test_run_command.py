@@ -50,6 +50,8 @@ def create_partially_completed_project(tmp_path: Path) -> Path:
             )
         ]
     )
+    store.save_voices([])
+    store.save_scenes([])
     return workspace_root
 
 

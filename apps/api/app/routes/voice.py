@@ -7,6 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from apps.api.app.models.scene import Scene
 from apps.api.app.models.voice import VoiceSegment
 from apps.api.app.services.file_store import FileStore
+from apps.api.app.services.project_integrity import (
+    ProjectIntegrityError,
+    SCENE_REVIEW_REQUIRED_FILES,
+    assert_project_integrity,
+)
 from apps.api.app.services.project_media import project_dir_or_404, project_media_url
 from apps.cli.app.services.recording import record_voice_segment
 from apps.cli.app.services.scene_sync import resolve_scene_voice_ids, resolve_voice_for_scene
@@ -31,8 +36,9 @@ class ReplaceAudioRequest(BaseModel):
 @router.get("/{project_id}/scene-review")
 def get_scene_review(project_id: str, request: Request) -> list[dict[str, object]]:
     store = _project_store(project_id, request)
-    scenes = _load_optional_list(store.load_scenes)
-    voices = _load_optional_list(store.load_voices)
+    _assert_scene_review_integrity(store.project_dir)
+    scenes = store.load_scenes()
+    voices = store.load_voices()
     return _scene_review_payloads(project_id, scenes, voices)
 
 
@@ -44,8 +50,9 @@ def update_scene(
     request: Request,
 ) -> dict[str, object]:
     store = _project_store(project_id, request)
-    scenes = _load_optional_list(store.load_scenes)
-    voices = _load_optional_list(store.load_voices)
+    _assert_scene_review_integrity(store.project_dir)
+    scenes = store.load_scenes()
+    voices = store.load_voices()
 
     updated_scenes: list[Scene] = []
     matched_scene: Scene | None = None
@@ -139,15 +146,6 @@ def _scene_review_payloads(
         payload.append(scene_payload)
 
     return payload
-
-
-def _load_optional_list(loader):
-    try:
-        return loader()
-    except FileNotFoundError:
-        return []
-
-
 def _project_store(project_id: str, request: Request) -> FileStore:
     return FileStore(project_dir_or_404(project_id, request))
 
@@ -167,3 +165,14 @@ def _voice_payload(project_id: str, voice: VoiceSegment) -> dict[str, object]:
     payload = voice.model_dump(mode="json", by_alias=True)
     payload["audioFile"] = project_media_url(project_id, voice.audio_file)
     return payload
+
+
+def _assert_scene_review_integrity(project_dir: Path) -> None:
+    try:
+        assert_project_integrity(
+            project_dir,
+            required_files=SCENE_REVIEW_REQUIRED_FILES,
+            check_scene_voice_refs=True,
+        )
+    except ProjectIntegrityError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error

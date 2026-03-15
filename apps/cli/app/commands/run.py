@@ -4,6 +4,11 @@ from pathlib import Path
 import typer
 
 from apps.api.app.services.file_store import FileStore
+from apps.api.app.services.project_integrity import (
+    PROGRESS_REQUIRED_FILES,
+    ProjectIntegrityError,
+    assert_project_integrity,
+)
 
 STAGE_ORDER = [
     "import-images",
@@ -32,6 +37,12 @@ def run_command(
         typer.echo(f"Project not found: {project_dir}", err=True)
         raise typer.Exit(code=1)
 
+    try:
+        assert_project_integrity(project_dir, required_files=PROGRESS_REQUIRED_FILES)
+    except ProjectIntegrityError as error:
+        typer.echo(str(error), err=True)
+        raise typer.Exit(code=1) from error
+
     status = project_stage_status(project_dir)
     typer.echo(f"Project {project_id} progress")
     for stage in STAGE_ORDER:
@@ -47,9 +58,9 @@ def run_command(
 
 def project_stage_status(project_dir: Path) -> dict[str, bool]:
     store = FileStore(project_dir)
-    frames = _load_optional_list(store.load_frames)
-    voices = _load_optional_list(store.load_voices)
-    scenes = _load_optional_list(store.load_scenes)
+    frames = store.load_frames()
+    voices = store.load_voices()
+    scenes = store.load_scenes()
 
     translation_ready = False
     script_path = project_dir / "script" / "script.json"
@@ -64,10 +75,3 @@ def project_stage_status(project_dir: Path) -> dict[str, bool]:
         "voice": any(voice.audio_file for voice in voices),
         "build-scenes": len(scenes) > 0,
     }
-
-
-def _load_optional_list(loader):
-    try:
-        return loader()
-    except FileNotFoundError:
-        return []

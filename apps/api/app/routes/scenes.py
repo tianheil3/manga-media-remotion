@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from apps.api.app.models.scene import Scene
 from apps.api.app.services.file_store import FileStore
 from apps.api.app.services.project_media import project_dir_or_404, project_media_url
+from apps.api.app.services.project_integrity import (
+    ProjectIntegrityError,
+    SCENE_REVIEW_REQUIRED_FILES,
+    assert_project_integrity,
+)
 
 router = APIRouter(prefix="/projects", tags=["scenes"])
 
@@ -12,9 +17,10 @@ def get_scenes(project_id: str, request: Request) -> list[dict[str, object]]:
     project_dir = project_dir_or_404(project_id, request)
     store = FileStore(project_dir)
     try:
-        scenes = store.load_scenes()
-    except FileNotFoundError:
-        return []
+        assert_project_integrity(project_dir, required_files=SCENE_REVIEW_REQUIRED_FILES)
+    except ProjectIntegrityError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    scenes = store.load_scenes()
 
     return [_scene_payload(project_id, scene) for scene in scenes]
 

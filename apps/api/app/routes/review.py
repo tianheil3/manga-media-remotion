@@ -7,6 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from apps.api.app.models.frame import Frame
 from apps.api.app.services.project_media import project_dir_or_404, project_media_url
 from apps.api.app.services.file_store import FileStore
+from apps.api.app.services.project_integrity import (
+    FRAME_REVIEW_REQUIRED_FILES,
+    ProjectIntegrityError,
+    assert_project_integrity,
+)
 from apps.cli.app.services.review_state import ReviewEntry, apply_review
 
 router = APIRouter(prefix="/projects", tags=["review"])
@@ -33,9 +38,10 @@ class FrameReviewUpdate(BaseModel):
 def get_frames(project_id: str, request: Request) -> list[dict[str, object]]:
     store = _project_store(project_id, request)
     try:
-        frames = store.load_frames()
-    except FileNotFoundError:
-        return []
+        assert_project_integrity(store.project_dir, required_files=FRAME_REVIEW_REQUIRED_FILES)
+    except ProjectIntegrityError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    frames = store.load_frames()
 
     return [_frame_payload(project_id, frame) for frame in frames]
 

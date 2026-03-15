@@ -2,6 +2,9 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 
+from fastapi import HTTPException
+import pytest
+
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -65,6 +68,8 @@ def create_project(
         )
     ]
     store.save_frames(frames)
+    store.save_voices([])
+    store.save_scenes([])
 
     if complete:
         store.save_voices(
@@ -184,3 +189,19 @@ def test_projects_api_lists_details_and_scenes(tmp_path: Path) -> None:
             "transition": "cut",
         }
     ]
+
+
+def test_get_project_returns_actionable_integrity_error_for_missing_voices_file(tmp_path: Path) -> None:
+    workspace_root = tmp_path / "workspace"
+    create_project(workspace_root, "demo-001", complete=False)
+    project_dir = workspace_root / "demo-001"
+    (project_dir / "script" / "voices.json").unlink(missing_ok=True)
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(workspace_root=workspace_root)))
+
+    with pytest.raises(HTTPException) as error:
+        get_project("demo-001", request)
+
+    assert error.value.status_code == 409
+    assert "Project integrity check failed" in error.value.detail
+    assert "script/voices.json" in error.value.detail
+    assert "repair demo-001" in error.value.detail

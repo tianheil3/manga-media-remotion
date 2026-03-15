@@ -4,6 +4,11 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 
 from apps.api.app.services.file_store import FileStore
+from apps.api.app.services.project_integrity import (
+    PROGRESS_REQUIRED_FILES,
+    ProjectIntegrityError,
+    assert_project_integrity,
+)
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -34,11 +39,12 @@ def get_project(project_id: str, request: Request) -> dict[str, object]:
     if not (project_dir / "project.json").exists():
         raise HTTPException(status_code=404, detail="Project not found")
 
+    _assert_project_integrity(project_dir)
     store = FileStore(project_dir)
     project = store.load_project()
     frames = store.load_frames()
-    voices = _load_optional_list(store.load_voices)
-    scenes = _load_optional_list(store.load_scenes)
+    voices = store.load_voices()
+    scenes = store.load_scenes()
 
     return {
         "id": project.id,
@@ -57,10 +63,11 @@ def _workspace_root(request: Request) -> Path:
 
 
 def _project_progress(project_dir: Path) -> dict[str, bool]:
+    _assert_project_integrity(project_dir)
     store = FileStore(project_dir)
-    frames = _load_optional_list(store.load_frames)
-    voices = _load_optional_list(store.load_voices)
-    scenes = _load_optional_list(store.load_scenes)
+    frames = store.load_frames()
+    voices = store.load_voices()
+    scenes = store.load_scenes()
 
     translation_ready = False
     script_path = project_dir / "script" / "script.json"
@@ -76,9 +83,8 @@ def _project_progress(project_dir: Path) -> dict[str, bool]:
         "scenes": len(scenes) > 0,
     }
 
-
-def _load_optional_list(loader):
+def _assert_project_integrity(project_dir: Path) -> None:
     try:
-        return loader()
-    except FileNotFoundError:
-        return []
+        assert_project_integrity(project_dir, required_files=PROGRESS_REQUIRED_FILES)
+    except ProjectIntegrityError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error

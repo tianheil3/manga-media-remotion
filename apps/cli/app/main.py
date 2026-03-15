@@ -3,6 +3,7 @@ import typer
 from apps.cli.app.commands.doctor import doctor
 from apps.cli.app.commands.build_scenes import build_scenes_command
 from apps.cli.app.commands.import_images import import_images_command
+from apps.cli.app.commands.integrity import integrity_command, repair_command
 from apps.cli.app.commands.new import new_project
 from apps.cli.app.commands.ocr import ocr_command
 from apps.cli.app.commands.open import open_project
@@ -18,8 +19,10 @@ app.command("new")(new_project)
 app.command("open")(open_project)
 app.command("run")(run_command)
 app.command("doctor")(doctor)
+app.command("integrity")(integrity_command)
 app.command("import-images")(import_images_command)
 app.command("ocr")(ocr_command)
+app.command("repair")(repair_command)
 app.command("review")(review_command)
 app.command("translate")(translate_command)
 app.command("voice")(voice_command)
