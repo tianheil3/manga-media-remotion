@@ -53,6 +53,7 @@ Expected result: imported files land in `workspace/<project-id>/images/`, and `s
 ### 3. Run OCR
 
 ```bash
+MANGA_IMAGE_TRANSLATOR_BASE_URL=... \
 python -m apps.cli.app.main ocr <project-id> --workspace-root workspace
 ```
 
@@ -77,8 +78,7 @@ Expected result: reviewed text stays separate from OCR text in `script/frames.js
 ### 5. Translate and preserve downstream text layers
 
 ```bash
-TRANSLATION_PROVIDER=deepl \
-DEEPL_API_KEY=... \
+MANGA_IMAGE_TRANSLATOR_BASE_URL=... \
 python -m apps.cli.app.main translate <project-id> --target-language zh --workspace-root workspace
 ```
 
@@ -148,14 +148,13 @@ Poll `/render-jobs/<job-id>` until the job reaches `completed`, then verify the 
 
 ### OCR triage
 
-- If `doctor` or `ocr` says `MangaOCR is not installed`, install `manga-ocr` in the active Python environment first.
+- If `doctor` or `ocr` says `Manga Image Translator OCR is not configured`, export `MANGA_IMAGE_TRANSLATOR_BASE_URL`; set `MANGA_IMAGE_TRANSLATOR_OCR_PATH` or `MANGA_IMAGE_TRANSLATOR_API_KEY` when your MIT service uses a non-default endpoint or bearer auth.
 - If `ocr` says `No imported frames found. Run import-images first.`, re-run `import-images` and confirm `script/frames.json` is not empty.
-- If OCR localization fails because `Pillow`, `opencv-python`, or `numpy` is missing, fix the Python environment and re-run `doctor`.
 - After a partial OCR run, inspect both `workspace/<project-id>/ocr/` and `workspace/<project-id>/script/frames.json` before retrying.
 
 ### Translation triage
 
-- If translation fails with `DeepL translation is not configured`, export `TRANSLATION_PROVIDER=deepl` and `DEEPL_API_KEY`; set `DEEPL_BASE_URL` only when using a non-default endpoint.
+- If translation fails with `Manga Image Translator translation is not configured`, export `MANGA_IMAGE_TRANSLATOR_BASE_URL`; set `MANGA_IMAGE_TRANSLATOR_TRANSLATE_PATH` or `MANGA_IMAGE_TRANSLATOR_API_KEY` when your MIT service uses a non-default endpoint or bearer auth.
 - If translation fails with `No reviewed text found. Run review before translation.`, confirm reviewed entries were saved to `reviewedBubbles`.
 - If translation fails for a specific bubble, the error includes the bubble and frame IDs. Fix the provider or input and rerun `translate`.
 - Confirm `script/script.json` is updated only after a successful run. Do not hand-edit it unless you are intentionally applying operator overrides.

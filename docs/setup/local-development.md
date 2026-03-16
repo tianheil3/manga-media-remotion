@@ -19,8 +19,7 @@ pip install fastapi uvicorn typer pytest opencv-python numpy Pillow
 
 Stage-specific setup:
 
-- OCR: install `manga-ocr` as documented in `docs/setup/mangaocr.md`
-- Translation: export the DeepL variables from `docs/setup/translation-env.md`
+- OCR + translation: configure the MIT service as documented in `docs/setup/manga-image-translator.md`
 - TTS: export the Moyin variables from `docs/setup/moyin-env.md`
 
 After installing packages and configuring any provider environment variables, run the shared setup check:
@@ -48,9 +47,11 @@ The runnable monorepo uses a small set of environment variables during local sta
 - `MANGA_WORKSPACE_ROOT`: API workspace root. Use an absolute path such as `$(pwd)/workspace` when the API will read or write render jobs for `workspace/<project-id>/`.
 - `MANGA_API_BASE_URL`: preferred API base URL for the web dev server and static build.
 - `VITE_API_BASE_URL`: alternate web API base URL when you are not using `MANGA_API_BASE_URL`.
-- `TRANSLATION_PROVIDER=deepl` and `DEEPL_API_KEY`: required for CLI translation. `DEEPL_BASE_URL` is optional.
+- `MANGA_IMAGE_TRANSLATOR_BASE_URL`: required for CLI OCR and translation.
+- `MANGA_IMAGE_TRANSLATOR_OCR_PATH`: optional OCR endpoint override. Defaults to `/translate/with-form/json`.
+- `MANGA_IMAGE_TRANSLATOR_TRANSLATE_PATH`: optional reviewed-text translation endpoint override. Defaults to `/translate/text`.
+- `MANGA_IMAGE_TRANSLATOR_API_KEY`: optional bearer token for MIT service auth.
 - `MOYIN_TTS_BASE_URL` and `MOYIN_TTS_API_KEY`: required for CLI voice generation.
-- OCR does not need environment variables, but it does require the `manga-ocr` Python package.
 
 The web app resolves its API URL in this order:
 
