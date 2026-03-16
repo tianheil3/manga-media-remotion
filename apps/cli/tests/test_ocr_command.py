@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 import sys
 
-from PIL import Image, ImageDraw
 from typer.testing import CliRunner
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -55,15 +54,6 @@ class FakeOcrEngine:
         ]
 
 
-class SizeAwareMangaOcr:
-    def __call__(self, image) -> str:
-        if isinstance(image, (str, Path)):
-            image = Image.open(image)
-
-        width, _height = image.size
-        return "left bubble" if width >= 45 else "right bubble"
-
-
 def create_project_with_images(tmp_path: Path) -> Path:
     workspace_root = tmp_path / "workspace"
 
@@ -101,19 +91,6 @@ def create_project_with_images(tmp_path: Path) -> Path:
     return workspace_root
 
 
-def create_localized_text_image(image_path: Path) -> None:
-    image = Image.new("L", (180, 120), color=255)
-    draw = ImageDraw.Draw(image)
-
-    for offset in (0, 10, 20):
-        draw.rectangle((124, 14 + offset, 140, 20 + offset), fill=0)
-
-    for offset in (0, 12, 24, 36):
-        draw.rectangle((24, 50 + offset, 70, 58 + offset), fill=0)
-
-    image.save(image_path)
-
-
 def test_ocr_command_writes_per_image_output_and_updates_frames(
     tmp_path: Path,
     monkeypatch,
@@ -139,48 +116,92 @@ def test_ocr_command_writes_per_image_output_and_updates_frames(
     assert frames_payload[1]["bubbles"][0]["id"] == "solo"
 
 
-def test_manga_ocr_engine_localizes_multiple_bubbles_with_real_geometry(tmp_path: Path) -> None:
-    image_path = tmp_path / "localized-page.png"
-    create_localized_text_image(image_path)
+def test_manga_image_translator_ocr_engine_extracts_bubbles_from_service_json(tmp_path: Path) -> None:
+    image_path = tmp_path / "page-001.png"
+    image_path.write_bytes(PNG_BYTES)
+    seen_request: dict[str, object] = {}
 
-    engine = ocr_service.MangaOcrEngine.__new__(ocr_service.MangaOcrEngine)
-    engine._engine = SizeAwareMangaOcr()
+    def fake_transport(request):
+        seen_request["url"] = request.full_url
+        content_type = request.get_header("Content-type")
+        body = request.data.decode("utf-8", errors="ignore")
+        seen_request["content_type"] = content_type
+        seen_request["has_image_part"] = 'name="image"; filename="page-001.png"' in body
+        seen_request["body"] = body
+        return json.dumps(
+            {
+                "translations": [
+                    {
+                        "minX": 124,
+                        "minY": 14,
+                        "maxX": 140,
+                        "maxY": 40,
+                        "prob": 0.95,
+                        "text": {"ja": "right bubble"},
+                    },
+                    {
+                        "minX": 24,
+                        "minY": 50,
+                        "maxX": 74,
+                        "maxY": 94,
+                        "prob": 0.91,
+                        "text": {"ja": "left bubble"},
+                    },
+                ]
+            }
+        ).encode("utf-8")
+
+    engine = ocr_service.MangaImageTranslatorOcrEngine(
+        base_url="https://mit.example.invalid",
+        ocr_path="/translate/with-form/json",
+        transport=fake_transport,
+    )
 
     bubbles = engine.extract_bubbles(image_path)
 
-    assert len(bubbles) == 2
-
-    left_bubble, right_bubble = sorted(bubbles, key=lambda bubble: bubble["bbox"]["x"])
-
-    assert left_bubble["text"] == "left bubble"
-    assert left_bubble["bbox"]["x"] < 40
-    assert left_bubble["bbox"]["y"] > 40
-    assert left_bubble["bbox"]["w"] > 35
-    assert left_bubble["bbox"]["h"] > 35
-
-    assert right_bubble["text"] == "right bubble"
-    assert right_bubble["bbox"]["x"] > 110
-    assert right_bubble["bbox"]["y"] < 30
-    assert right_bubble["bbox"]["w"] > 10
-    assert right_bubble["bbox"]["h"] > 20
-
-    assert all(bubble["bbox"] != {"x": 0, "y": 0, "w": 1, "h": 1} for bubble in bubbles)
+    assert seen_request["url"] == "https://mit.example.invalid/translate/with-form/json"
+    assert seen_request["content_type"].startswith("multipart/form-data; boundary=")
+    assert seen_request["has_image_part"] is True
+    assert '"translator": "none"' in seen_request["body"]
+    assert [bubble["text"] for bubble in bubbles] == ["right bubble", "left bubble"]
+    assert bubbles[0]["bbox"] == {"x": 124, "y": 14, "w": 16, "h": 26}
+    assert bubbles[1]["bbox"] == {"x": 24, "y": 50, "w": 50, "h": 44}
+    assert bubbles[0]["confidence"] == 0.95
+    assert bubbles[0]["language"] == "ja"
 
 
-def test_manga_ocr_engine_assigns_ids_in_reading_order(tmp_path: Path, monkeypatch) -> None:
-    image_path = tmp_path / "localized-page.png"
-    create_localized_text_image(image_path)
+def test_manga_image_translator_ocr_engine_assigns_ids_in_reading_order(tmp_path: Path) -> None:
+    image_path = tmp_path / "page-001.png"
+    image_path.write_bytes(PNG_BYTES)
 
-    engine = ocr_service.MangaOcrEngine.__new__(ocr_service.MangaOcrEngine)
-    engine._engine = SizeAwareMangaOcr()
+    def fake_transport(request):
+        return json.dumps(
+            {
+                "translations": [
+                    {
+                        "minX": 24,
+                        "minY": 50,
+                        "maxX": 74,
+                        "maxY": 94,
+                        "prob": 0.91,
+                        "text": {"ja": "left bubble"},
+                    },
+                    {
+                        "minX": 124,
+                        "minY": 14,
+                        "maxX": 140,
+                        "maxY": 40,
+                        "prob": 0.95,
+                        "text": {"ja": "right bubble"},
+                    },
+                ]
+            }
+        ).encode("utf-8")
 
-    monkeypatch.setattr(
-        ocr_service,
-        "_localize_bubble_regions",
-        lambda image: [
-            {"x": 24, "y": 50, "w": 50, "h": 44},
-            {"x": 124, "y": 14, "w": 16, "h": 26},
-        ],
+    engine = ocr_service.MangaImageTranslatorOcrEngine(
+        base_url="https://mit.example.invalid",
+        ocr_path="/translate/with-form/json",
+        transport=fake_transport,
     )
 
     normalized_bubbles = ocr_service.normalize_bubbles(engine.extract_bubbles(image_path))

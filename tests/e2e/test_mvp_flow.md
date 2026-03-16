@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Python dependencies for the CLI and API are installed.
-- `manga-ocr` is installed if OCR will be exercised.
+- `MANGA_IMAGE_TRANSLATOR_BASE_URL` is set if OCR or translation will be exercised against a live MIT service.
 - `MOYIN_TTS_BASE_URL` and `MOYIN_TTS_API_KEY` are configured if real TTS will be exercised.
 - Frontend and Remotion dependencies are available if preview or render stages will be exercised.
 

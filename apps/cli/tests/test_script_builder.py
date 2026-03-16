@@ -242,7 +242,7 @@ def test_translate_command_uses_translated_text_override_when_provider_fails(
     ]
 
 
-def test_translate_command_uses_translated_text_override_without_provider_configuration(
+def test_translate_command_uses_translated_text_override_without_mit_service_configuration(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -262,9 +262,9 @@ def test_translate_command_uses_translated_text_override_without_provider_config
         encoding="utf-8",
     )
 
-    monkeypatch.setenv("TRANSLATION_PROVIDER", "deepl")
-    monkeypatch.delenv("DEEPL_API_KEY", raising=False)
-    monkeypatch.delenv("DEEPL_BASE_URL", raising=False)
+    monkeypatch.delenv("MANGA_IMAGE_TRANSLATOR_BASE_URL", raising=False)
+    monkeypatch.delenv("MANGA_IMAGE_TRANSLATOR_TRANSLATE_PATH", raising=False)
+    monkeypatch.delenv("MANGA_IMAGE_TRANSLATOR_API_KEY", raising=False)
 
     result = runner.invoke(
         app,

@@ -1,7 +1,11 @@
 import json
+import mimetypes
+import os
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Protocol
+from urllib import error, request
 
 from apps.api.app.models.frame import BoundingBox, Frame, OcrBubble
 from apps.api.app.services.file_store import FileStore
@@ -13,32 +17,209 @@ class OcrEngine(Protocol):
         ...
 
 
-def validate_ocr_setup():
-    try:
-        from manga_ocr import MangaOcr
-    except ImportError as exc:
-        raise RuntimeError(
-            "MangaOCR is not installed. Install the `manga-ocr` Python package before running OCR or `doctor`."
-        ) from exc
-
-    return MangaOcr
+def validate_ocr_setup() -> "MangaImageTranslatorOcrEngine":
+    return MangaImageTranslatorOcrEngine.from_env()
 
 
-class MangaOcrEngine:
-    def __init__(self) -> None:
-        self._engine = validate_ocr_setup()()
+class MangaImageTranslatorOcrEngine:
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        ocr_path: str,
+        api_key: str | None = None,
+        transport: Callable[[request.Request], bytes] | None = None,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.ocr_path = ocr_path
+        self.api_key = api_key
+        self.transport = transport or self._default_transport
+
+    @classmethod
+    def from_env(cls) -> "MangaImageTranslatorOcrEngine":
+        base_url = os.environ.get("MANGA_IMAGE_TRANSLATOR_BASE_URL", "").strip()
+        if not base_url:
+            raise RuntimeError(
+                "Manga Image Translator OCR is not configured. "
+                "Set MANGA_IMAGE_TRANSLATOR_BASE_URL; optionally "
+                "MANGA_IMAGE_TRANSLATOR_OCR_PATH and MANGA_IMAGE_TRANSLATOR_API_KEY."
+            )
+
+        ocr_path = os.environ.get("MANGA_IMAGE_TRANSLATOR_OCR_PATH", "/translate/with-form/json").strip()
+        if not ocr_path:
+            ocr_path = "/translate/with-form/json"
+
+        api_key = os.environ.get("MANGA_IMAGE_TRANSLATOR_API_KEY", "").strip() or None
+        return cls(base_url=base_url, ocr_path=ocr_path, api_key=api_key)
 
     def extract_bubbles(self, image_path: Path) -> list[dict[str, object]]:
-        image = _load_image(image_path)
-        localized_bubbles = _extract_localized_bubbles(self._engine, image)
-        if localized_bubbles:
-            return localized_bubbles
+        content_type, payload = _encode_multipart_form_data(
+            fields={
+                "config": json.dumps(
+                    {
+                        "translator": {"translator": "none"},
+                        "render": {"direction": "none"},
+                        "inpainter": {"inpainter": "none"},
+                    }
+                )
+            },
+            files={
+                "image": (
+                    image_path.name,
+                    image_path.read_bytes(),
+                    mimetypes.guess_type(image_path.name)[0] or "application/octet-stream",
+                )
+            },
+        )
+        headers = {"Content-Type": content_type}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
 
-        return _extract_full_page_bubble(self._engine, image)
+        req = request.Request(
+            self._build_url(self.ocr_path),
+            data=payload,
+            headers=headers,
+            method="POST",
+        )
+
+        try:
+            response_payload = self.transport(req)
+        except error.HTTPError as exc:
+            raise RuntimeError(self._format_http_error(exc)) from exc
+        except Exception as exc:  # pragma: no cover - exercised in command tests
+            raise RuntimeError(f"Manga Image Translator OCR request failed: {exc}") from exc
+
+        try:
+            response = json.loads(response_payload.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise RuntimeError(f"Manga Image Translator OCR response was invalid: {exc}") from exc
+
+        return self._extract_bubbles(response)
+
+    def _build_url(self, path: str) -> str:
+        if path.startswith("http://") or path.startswith("https://"):
+            return path
+
+        return f"{self.base_url}/{path.lstrip('/')}"
+
+    @staticmethod
+    def _default_transport(req: request.Request) -> bytes:
+        with request.urlopen(req) as response:
+            return response.read()
+
+    def _extract_bubbles(self, response: object) -> list[dict[str, object]]:
+        if isinstance(response, dict):
+            translations = response.get("translations")
+            if isinstance(translations, list):
+                return [self._bubble_from_translation(item) for item in translations]
+
+            bubbles = response.get("bubbles")
+            if isinstance(bubbles, list):
+                return [self._bubble_from_service_payload(item) for item in bubbles]
+
+        if isinstance(response, list):
+            return [self._bubble_from_service_payload(item) for item in response]
+
+        raise RuntimeError("Manga Image Translator OCR response did not include bubbles.")
+
+    def _bubble_from_translation(self, item: object) -> dict[str, object]:
+        if not isinstance(item, dict):
+            raise RuntimeError("Manga Image Translator OCR returned an invalid translation item.")
+
+        min_x = int(item["minX"])
+        min_y = int(item["minY"])
+        max_x = int(item["maxX"])
+        max_y = int(item["maxY"])
+        text_payload = item.get("text")
+        text = self._extract_text(text_payload)
+        language = self._extract_language(text_payload)
+
+        return {
+            "text": text,
+            "bbox": {"x": min_x, "y": min_y, "w": max_x - min_x, "h": max_y - min_y},
+            "confidence": float(item.get("prob", 1.0)),
+            "language": language,
+        }
+
+    def _bubble_from_service_payload(self, item: object) -> dict[str, object]:
+        if not isinstance(item, dict):
+            raise RuntimeError("Manga Image Translator OCR returned an invalid bubble item.")
+
+        bbox = item.get("bbox")
+        if not isinstance(bbox, dict):
+            raise RuntimeError("Manga Image Translator OCR bubble is missing bbox data.")
+
+        text = item.get("text")
+        if not isinstance(text, str):
+            raise RuntimeError("Manga Image Translator OCR bubble is missing text.")
+
+        return {
+            "id": item.get("id"),
+            "text": text,
+            "bbox": bbox,
+            "confidence": float(item.get("confidence", 1.0)),
+            "language": self._normalize_language(item.get("language")),
+        }
+
+    @staticmethod
+    def _extract_text(text_payload: object) -> str:
+        if isinstance(text_payload, str):
+            return text_payload
+
+        if isinstance(text_payload, dict):
+            for value in text_payload.values():
+                if isinstance(value, str) and value:
+                    return value
+
+        raise RuntimeError("Manga Image Translator OCR response did not include source text.")
+
+    def _extract_language(self, text_payload: object) -> str:
+        if isinstance(text_payload, dict):
+            for key in text_payload:
+                normalized = self._normalize_language(key)
+                if normalized:
+                    return normalized
+
+        return "ja"
+
+    @staticmethod
+    def _normalize_language(language: object) -> str:
+        if not isinstance(language, str) or not language.strip():
+            return "ja"
+
+        normalized = language.strip().lower()
+        if normalized in {"ja", "jpn", "jp", "ja-jp"}:
+            return "ja"
+        if normalized in {"zh", "chs", "cht", "zh-cn", "zh-tw"}:
+            return "zh"
+        if normalized in {"en", "eng", "en-us", "en-gb"}:
+            return "en"
+
+        return "ja"
+
+    @staticmethod
+    def _format_http_error(exc: error.HTTPError) -> str:
+        detail = None
+        if exc.fp is not None:
+            try:
+                payload = exc.fp.read()
+                response = json.loads(payload.decode("utf-8"))
+                for key in ("detail", "message", "error"):
+                    value = response.get(key)
+                    if isinstance(value, str):
+                        detail = value
+                        break
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+                detail = None
+
+        if detail:
+            return f"Manga Image Translator OCR request failed: {detail}"
+
+        return f"Manga Image Translator OCR request failed: {exc}"
 
 
 def get_ocr_engine() -> OcrEngine:
-    return MangaOcrEngine()
+    return MangaImageTranslatorOcrEngine.from_env()
 
 
 def run_ocr(project_dir: Path, engine: OcrEngine | None = None) -> list[Frame]:
@@ -93,9 +274,9 @@ def normalize_bubbles(raw_bubbles: list[dict[str, object]]) -> list[OcrBubble]:
                     w=float(bbox["w"]),
                     h=float(bbox["h"]),
                 ),
-                order=int(bubble["order"]),
+                order=int(bubble.get("order", index - 1)),
                 confidence=float(bubble.get("confidence", 1.0)),
-                language=str(bubble.get("language", "ja")),
+                language=MangaImageTranslatorOcrEngine._normalize_language(bubble.get("language")),
             )
         )
 
@@ -106,86 +287,36 @@ def _utc_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _load_image(image_path: Path):
-    try:
-        from PIL import Image
-    except ImportError as exc:
-        raise RuntimeError("OCR localization requires Pillow. Install Pillow before running OCR.") from exc
+def _encode_multipart_form_data(
+    *,
+    fields: dict[str, str],
+    files: dict[str, tuple[str, bytes, str]],
+) -> tuple[str, bytes]:
+    boundary = f"----codex-boundary-{uuid.uuid4().hex}"
+    lines: list[bytes] = []
 
-    with Image.open(image_path) as source_image:
-        return source_image.convert("RGB")
-
-
-def _extract_localized_bubbles(engine, image) -> list[dict[str, object]]:
-    localized_bubbles: list[dict[str, object]] = []
-
-    for bbox in _localize_bubble_regions(image):
-        crop = image.crop((bbox["x"], bbox["y"], bbox["x"] + bbox["w"], bbox["y"] + bbox["h"]))
-        text = str(engine(crop)).strip()
-        if not text:
-            continue
-
-        localized_bubbles.append(
-            {
-                "text": text,
-                "bbox": bbox,
-                "confidence": 1.0,
-                "language": "ja",
-            }
+    for name, value in fields.items():
+        lines.extend(
+            [
+                f"--{boundary}".encode("utf-8"),
+                f'Content-Disposition: form-data; name="{name}"'.encode("utf-8"),
+                b"",
+                value.encode("utf-8"),
+            ]
         )
 
-    return localized_bubbles
+    for name, (filename, content, content_type) in files.items():
+        lines.extend(
+            [
+                f"--{boundary}".encode("utf-8"),
+                f'Content-Disposition: form-data; name="{name}"; filename="{filename}"'.encode("utf-8"),
+                f"Content-Type: {content_type}".encode("utf-8"),
+                b"",
+                content,
+            ]
+        )
 
-
-def _extract_full_page_bubble(engine, image) -> list[dict[str, object]]:
-    text = str(engine(image)).strip()
-    if not text:
-        return []
-
-    width, height = image.size
-    return [
-        {
-            "text": text,
-            "bbox": {"x": 0, "y": 0, "w": width, "h": height},
-            "confidence": 1.0,
-            "language": "ja",
-        }
-    ]
-
-
-def _localize_bubble_regions(image) -> list[dict[str, int]]:
-    try:
-        import cv2
-        import numpy as np
-    except ImportError as exc:
-        raise RuntimeError(
-            "OCR localization requires opencv-python and numpy. Install the local render dependencies before running OCR."
-        ) from exc
-
-    grayscale = np.array(image.convert("L"))
-    _, mask = cv2.threshold(grayscale, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-    kernel_size = min(25, max(5, min(image.size) // 40))
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
-    dilated = cv2.dilate(mask, kernel, iterations=1)
-
-    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    min_width = max(10, image.width // 100)
-    min_height = max(10, image.height // 100)
-    min_foreground_pixels = max(20, (image.width * image.height) // 5000)
-    padding = max(2, min(image.size) // 200)
-
-    localized_regions: list[dict[str, int]] = []
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        foreground_pixels = int(cv2.countNonZero(mask[y : y + h, x : x + w]))
-        if w < min_width or h < min_height or foreground_pixels < min_foreground_pixels:
-            continue
-
-        x0 = max(0, x - padding)
-        y0 = max(0, y - padding)
-        x1 = min(image.width, x + w + padding)
-        y1 = min(image.height, y + h + padding)
-        localized_regions.append({"x": x0, "y": y0, "w": x1 - x0, "h": y1 - y0})
-
-    return localized_regions
+    lines.append(f"--{boundary}--".encode("utf-8"))
+    lines.append(b"")
+    payload = b"\r\n".join(lines)
+    return f"multipart/form-data; boundary={boundary}", payload

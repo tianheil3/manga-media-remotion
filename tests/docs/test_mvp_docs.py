@@ -18,4 +18,4 @@ def test_mvp_verification_docs_include_a_real_run_record() -> None:
     assert "Missing project.json for render job." in run_record
     assert 'MANGA_WORKSPACE_ROOT="$(pwd)/workspace" uvicorn' in run_record
     assert "MISSING ffmpeg" in run_record
-    assert "MangaOCR is not installed" in run_record
+    assert "predates the MIT service migration in TIA-43" in run_record
