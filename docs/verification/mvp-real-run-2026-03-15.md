@@ -1,6 +1,7 @@
 # MVP Real Run Record: 2026-03-15
 
 This note records a fresh end-to-end MVP execution on `2026-03-15` using a new local project workspace.
+It predates the MIT service migration in TIA-43 and remains a historical record of the pre-migration MVP path.
 
 ## Scope
 

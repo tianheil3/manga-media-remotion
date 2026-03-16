@@ -1,8 +1,6 @@
-import builtins
 import json
 from pathlib import Path
 import sys
-import types
 
 from typer.testing import CliRunner
 
@@ -96,11 +94,7 @@ def test_doctor_reports_missing_dependencies(monkeypatch) -> None:
         "node": "/usr/bin/node",
         "ffmpeg": None,
     }
-    fake_manga_ocr = types.ModuleType("manga_ocr")
-    fake_manga_ocr.MangaOcr = object
-    monkeypatch.setitem(sys.modules, "manga_ocr", fake_manga_ocr)
-    monkeypatch.setenv("TRANSLATION_PROVIDER", "deepl")
-    monkeypatch.setenv("DEEPL_API_KEY", "secret-token")
+    monkeypatch.setenv("MANGA_IMAGE_TRANSLATOR_BASE_URL", "https://mit.example.invalid")
     monkeypatch.setenv("MOYIN_TTS_BASE_URL", "https://example.invalid/tts")
     monkeypatch.setenv("MOYIN_TTS_API_KEY", "secret-token")
 
@@ -116,6 +110,8 @@ def test_doctor_reports_missing_dependencies(monkeypatch) -> None:
     assert "OK python" in result.stdout
     assert "OK node" in result.stdout
     assert "MISSING ffmpeg" in result.stdout
+    assert "OK OCR manga-image-translator" in result.stdout
+    assert "OK translation manga-image-translator" in result.stdout
 
 
 def test_doctor_reports_missing_provider_prerequisites(monkeypatch) -> None:
@@ -124,19 +120,12 @@ def test_doctor_reports_missing_provider_prerequisites(monkeypatch) -> None:
         "node": "/usr/bin/node",
         "ffmpeg": "/usr/bin/ffmpeg",
     }
-    real_import = builtins.__import__
-
-    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "manga_ocr":
-            raise ImportError("No module named 'manga_ocr'")
-        return real_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.delenv("TRANSLATION_PROVIDER", raising=False)
-    monkeypatch.delenv("DEEPL_API_KEY", raising=False)
-    monkeypatch.delenv("DEEPL_BASE_URL", raising=False)
+    monkeypatch.delenv("MANGA_IMAGE_TRANSLATOR_BASE_URL", raising=False)
+    monkeypatch.delenv("MANGA_IMAGE_TRANSLATOR_OCR_PATH", raising=False)
+    monkeypatch.delenv("MANGA_IMAGE_TRANSLATOR_TRANSLATE_PATH", raising=False)
+    monkeypatch.delenv("MANGA_IMAGE_TRANSLATOR_API_KEY", raising=False)
     monkeypatch.delenv("MOYIN_TTS_BASE_URL", raising=False)
     monkeypatch.delenv("MOYIN_TTS_API_KEY", raising=False)
-    monkeypatch.setattr(builtins, "__import__", fake_import)
     monkeypatch.setattr(
         doctor_command.shutil,
         "which",
@@ -146,9 +135,7 @@ def test_doctor_reports_missing_provider_prerequisites(monkeypatch) -> None:
     result = runner.invoke(app, ["doctor"])
 
     assert result.exit_code == 1, result.stdout
-    assert "MangaOCR is not installed" in result.stdout
-    assert "TRANSLATION_PROVIDER=deepl" in result.stdout
-    assert "DEEPL_API_KEY" in result.stdout
+    assert "MANGA_IMAGE_TRANSLATOR_BASE_URL" in result.stdout
     assert "MOYIN_TTS_BASE_URL" in result.stdout
     assert "MOYIN_TTS_API_KEY" in result.stdout
 
@@ -159,11 +146,7 @@ def test_doctor_reports_missing_render_prerequisites(monkeypatch) -> None:
         "node": "/usr/bin/node",
         "ffmpeg": "/usr/bin/ffmpeg",
     }
-    fake_manga_ocr = types.ModuleType("manga_ocr")
-    fake_manga_ocr.MangaOcr = object
-    monkeypatch.setitem(sys.modules, "manga_ocr", fake_manga_ocr)
-    monkeypatch.setenv("TRANSLATION_PROVIDER", "deepl")
-    monkeypatch.setenv("DEEPL_API_KEY", "secret-token")
+    monkeypatch.setenv("MANGA_IMAGE_TRANSLATOR_BASE_URL", "https://mit.example.invalid")
     monkeypatch.setenv("MOYIN_TTS_BASE_URL", "https://example.invalid/tts")
     monkeypatch.setenv("MOYIN_TTS_API_KEY", "secret-token")
     monkeypatch.setattr(
@@ -192,11 +175,7 @@ def test_doctor_reports_configured_provider_prerequisites(monkeypatch) -> None:
         "node": "/usr/bin/node",
         "ffmpeg": "/usr/bin/ffmpeg",
     }
-    fake_manga_ocr = types.ModuleType("manga_ocr")
-    fake_manga_ocr.MangaOcr = object
-    monkeypatch.setitem(sys.modules, "manga_ocr", fake_manga_ocr)
-    monkeypatch.setenv("TRANSLATION_PROVIDER", "deepl")
-    monkeypatch.setenv("DEEPL_API_KEY", "secret-token")
+    monkeypatch.setenv("MANGA_IMAGE_TRANSLATOR_BASE_URL", "https://mit.example.invalid")
     monkeypatch.setenv("MOYIN_TTS_BASE_URL", "https://example.invalid/tts")
     monkeypatch.setenv("MOYIN_TTS_API_KEY", "secret-token")
     monkeypatch.setattr(
@@ -212,7 +191,7 @@ def test_doctor_reports_configured_provider_prerequisites(monkeypatch) -> None:
     assert "OK python" in result.stdout
     assert "OK node" in result.stdout
     assert "OK ffmpeg" in result.stdout
-    assert "OK OCR" in result.stdout
+    assert "OK OCR manga-image-translator" in result.stdout
     assert "OK render" in result.stdout
-    assert "OK translation" in result.stdout
+    assert "OK translation manga-image-translator" in result.stdout
     assert "OK TTS" in result.stdout

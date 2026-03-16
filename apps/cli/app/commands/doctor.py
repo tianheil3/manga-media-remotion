@@ -1,4 +1,3 @@
-import os
 import shutil
 from importlib import import_module
 
@@ -37,15 +36,14 @@ def doctor() -> None:
 
     try:
         validate_ocr_setup()
-        typer.echo("OK OCR manga_ocr import")
+        typer.echo("OK OCR manga-image-translator")
     except RuntimeError as exc:
         failures.append("ocr")
         typer.echo(f"MISSING OCR {exc}")
 
     try:
-        provider = os.environ.get("TRANSLATION_PROVIDER", "deepl").strip().lower()
         get_translation_service()
-        typer.echo(f"OK translation {provider}")
+        typer.echo("OK translation manga-image-translator")
     except TranslationServiceError as exc:
         failures.append("translation")
         typer.echo(f"MISSING translation {exc}")

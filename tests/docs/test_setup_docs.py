@@ -7,7 +7,7 @@ def test_setup_docs_cover_local_development_requirements() -> None:
     readme = (root / "README.md").read_text(encoding="utf-8")
     local_dev = (root / "docs" / "setup" / "local-development.md").read_text(encoding="utf-8")
     moyin_env = (root / "docs" / "setup" / "moyin-env.md").read_text(encoding="utf-8")
-    mangaocr = (root / "docs" / "setup" / "mangaocr.md").read_text(encoding="utf-8")
+    mit_setup = (root / "docs" / "setup" / "manga-image-translator.md").read_text(encoding="utf-8")
     translation_env = (root / "docs" / "setup" / "translation-env.md").read_text(encoding="utf-8")
 
     assert "Local Development" in readme
@@ -31,6 +31,7 @@ def test_setup_docs_cover_local_development_requirements() -> None:
     assert "npm test --workspace apps/remotion" in local_dev
     assert "doctor" in readme
     assert "doctor" in local_dev
+    assert "MANGA_IMAGE_TRANSLATOR_BASE_URL" in local_dev
     assert "MANGA_WORKSPACE_ROOT" in readme
     assert "MANGA_WORKSPACE_ROOT" in local_dev
     assert "MANGA_API_BASE_URL" in readme
@@ -45,14 +46,15 @@ def test_setup_docs_cover_local_development_requirements() -> None:
     assert "MOYIN_TTS_BASE_URL" in moyin_env
     assert "MOYIN_TTS_API_KEY" in moyin_env
     assert "doctor" in moyin_env
-    assert "TRANSLATION_PROVIDER" in translation_env
-    assert "DEEPL_API_KEY" in translation_env
-    assert "DEEPL_BASE_URL" in translation_env
+    assert "MANGA_IMAGE_TRANSLATOR_BASE_URL" in translation_env
+    assert "MANGA_IMAGE_TRANSLATOR_OCR_PATH" in translation_env
+    assert "MANGA_IMAGE_TRANSLATOR_TRANSLATE_PATH" in translation_env
+    assert "MANGA_IMAGE_TRANSLATOR_API_KEY" in translation_env
     assert "doctor" in translation_env
-    assert "manga-ocr" in mangaocr
-    assert "manga_ocr" in mangaocr
-    assert "pip install" in mangaocr
-    assert "doctor" in mangaocr
+    assert "translate/with-form/json" in mit_setup
+    assert "/translate/text" in mit_setup
+    assert "MANGA_IMAGE_TRANSLATOR_BASE_URL" in mit_setup
+    assert "doctor" in mit_setup
     assert "reserved for the Remotion renderer" not in local_dev
     assert "tracked separately" not in local_dev
 
